@@ -1,0 +1,7 @@
+python3 main_inference.py \
+  --model v1/coffee_best.pt \
+  --source Broken_14.jpg \
+  --enable-mqtt \
+  --mqtt-host localhost \
+  --mqtt-topic tni/tesa/task2 \
+  --source-label task2_test

@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  #Mosquitto (MQTT Broker)
+  mqtt-broker:
+    image: eclipse-mosquitto:latest
+    container_name: local-mqtt-broker
+    restart: always
+    ports:
+      - "1883:1883"
+    command: mosquitto -c /mosquitto-no-auth.conf
+
+  #Node-RED
+  nodered:
+    image: nodered/node-red:latest
+    container_name: local-nodered
+    restart: always
+    ports:
+      - "1880:1880"
+    depends_on:
+      - mqtt-broker

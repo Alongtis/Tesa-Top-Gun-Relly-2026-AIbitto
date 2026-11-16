@@ -1,0 +1,678 @@
+[
+    {
+        "id": "e1dcb74d3bfa419c",
+        "type": "tab",
+        "label": "Flow 2",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "39116957da6353df",
+        "type": "mqtt in",
+        "z": "e1dcb74d3bfa419c",
+        "name": "",
+        "topic": "tni/tesa/task2",
+        "qos": "1",
+        "datatype": "auto-detect",
+        "broker": "8c84ed58184398c5",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 130,
+        "y": 360,
+        "wires": [
+            [
+                "67c68510bbebb8fa"
+            ]
+        ]
+    },
+    {
+        "id": "67c68510bbebb8fa",
+        "type": "json",
+        "z": "e1dcb74d3bfa419c",
+        "name": "",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 410,
+        "y": 360,
+        "wires": [
+            [
+                "a7e45f5ced26bd4c"
+            ]
+        ]
+    },
+    {
+        "id": "a7e45f5ced26bd4c",
+        "type": "function",
+        "z": "e1dcb74d3bfa419c",
+        "name": "function 3",
+        "func": "let data = msg.payload;\n\n// ป้องกันปัญหาข้อมูลเข้าเป็น String โดยแปลงเป็น Object ทันที\nif (typeof data === 'string') {\n    try {\n        data = JSON.parse(data);\n    } catch (e) {\n        data = {};\n    }\n}\n\nlet source = data.source || 'unknown';\nlet imageName = data.image_name ? `'${data.image_name}'` : 'NULL';\nlet classId = Number.isInteger(data.class_id) ? data.class_id : 0;\nlet className = data.class_name || 'unknown';\nlet confidence = typeof data.confidence === 'number' ? data.confidence : 0.0;\n\nlet bboxX = (data.bbox && typeof data.bbox.x === 'number') ? data.bbox.x : 'NULL';\nlet bboxY = (data.bbox && typeof data.bbox.y === 'number') ? data.bbox.y : 'NULL';\n\nmsg.topic = `\nINSERT INTO yolo_predictions (source, image_name, class_id, class_name, confidence, bbox_x, bbox_y)\nVALUES ('${source}', ${imageName}, ${classId}, '${className}', ${confidence}, ${bboxX}, ${bboxY});\n`;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 360,
+        "wires": [
+            [
+                "641cc694c1e2d2b7"
+            ]
+        ]
+    },
+    {
+        "id": "ecb722e6b2ff4253",
+        "type": "debug",
+        "z": "e1dcb74d3bfa419c",
+        "name": "debug 3",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1040,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "4894f8e7de71d5a1",
+        "type": "inject",
+        "z": "e1dcb74d3bfa419c",
+        "name": "Create Table",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1070,
+        "y": 520,
+        "wires": [
+            [
+                "147280d8e8d32880"
+            ]
+        ]
+    },
+    {
+        "id": "147280d8e8d32880",
+        "type": "function",
+        "z": "e1dcb74d3bfa419c",
+        "name": "SQL Create",
+        "func": "msg.topic = `\nCREATE TABLE IF NOT EXISTS yolo_predictions (\n    id            INTEGER PRIMARY KEY AUTOINCREMENT,\n    source        TEXT    NOT NULL,\n    image_name    TEXT,\n    class_id      INTEGER NOT NULL,\n    class_name    TEXT    NOT NULL,\n    confidence    REAL    NOT NULL,\n    bbox_x        REAL,\n    bbox_y        REAL,\n    created_at    TEXT    NOT NULL DEFAULT (datetime('now','localtime'))\n);`;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1290,
+        "y": 520,
+        "wires": [
+            [
+                "45c58e8995bf1a0c"
+            ]
+        ]
+    },
+    {
+        "id": "3c52df1ec9af3077",
+        "type": "inject",
+        "z": "e1dcb74d3bfa419c",
+        "name": "Select All",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 840,
+        "y": 580,
+        "wires": [
+            [
+                "19de7c0616b0f549"
+            ]
+        ]
+    },
+    {
+        "id": "616226d088ed04ce",
+        "type": "inject",
+        "z": "e1dcb74d3bfa419c",
+        "name": "Clear Data",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1060,
+        "y": 640,
+        "wires": [
+            [
+                "48f3d4c154d1b7a3"
+            ]
+        ]
+    },
+    {
+        "id": "19de7c0616b0f549",
+        "type": "function",
+        "z": "e1dcb74d3bfa419c",
+        "name": "SQL Select",
+        "func": "msg.topic = \"SELECT * FROM yolo_predictions;\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1050,
+        "y": 580,
+        "wires": [
+            [
+                "45c58e8995bf1a0c"
+            ]
+        ]
+    },
+    {
+        "id": "48f3d4c154d1b7a3",
+        "type": "function",
+        "z": "e1dcb74d3bfa419c",
+        "name": "SQL Clear",
+        "func": "msg.topic = \"DELETE FROM yolo_predictions\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1290,
+        "y": 640,
+        "wires": [
+            [
+                "45c58e8995bf1a0c"
+            ]
+        ]
+    },
+    {
+        "id": "f01d159c8b7b9a17",
+        "type": "debug",
+        "z": "e1dcb74d3bfa419c",
+        "name": "debug 4",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1720,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "9ccde54122f1863c",
+        "type": "http in",
+        "z": "e1dcb74d3bfa419c",
+        "name": "HTTP in",
+        "url": "/api/data",
+        "method": "get",
+        "upload": false,
+        "skipBodyParsing": false,
+        "swaggerDoc": "",
+        "x": 820,
+        "y": 760,
+        "wires": [
+            [
+                "9ad948835d0de103"
+            ]
+        ]
+    },
+    {
+        "id": "9ad948835d0de103",
+        "type": "function",
+        "z": "e1dcb74d3bfa419c",
+        "name": "SQL Select",
+        "func": "msg.topic = \"SELECT * FROM yolo_predictions;\"; \nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1050,
+        "y": 760,
+        "wires": [
+            [
+                "89864453b6606819"
+            ]
+        ]
+    },
+    {
+        "id": "df895b9246d1d56a",
+        "type": "http response",
+        "z": "e1dcb74d3bfa419c",
+        "name": "HTTP Resp.",
+        "statusCode": "",
+        "headers": {},
+        "x": 1550,
+        "y": 760,
+        "wires": []
+    },
+    {
+        "id": "641cc694c1e2d2b7",
+        "type": "sqlite",
+        "z": "e1dcb74d3bfa419c",
+        "mydb": "2ab8c5ef55b088f7",
+        "sqlquery": "msg.topic",
+        "sql": "",
+        "name": "",
+        "x": 810,
+        "y": 360,
+        "wires": [
+            [
+                "ecb722e6b2ff4253",
+                "19de7c0616b0f549"
+            ]
+        ]
+    },
+    {
+        "id": "45c58e8995bf1a0c",
+        "type": "sqlite",
+        "z": "e1dcb74d3bfa419c",
+        "mydb": "2ab8c5ef55b088f7",
+        "sqlquery": "msg.topic",
+        "sql": "",
+        "name": "",
+        "x": 1510,
+        "y": 580,
+        "wires": [
+            [
+                "f01d159c8b7b9a17"
+            ]
+        ]
+    },
+    {
+        "id": "89864453b6606819",
+        "type": "sqlite",
+        "z": "e1dcb74d3bfa419c",
+        "mydb": "2ab8c5ef55b088f7",
+        "sqlquery": "msg.topic",
+        "sql": "",
+        "name": "",
+        "x": 1310,
+        "y": 760,
+        "wires": [
+            [
+                "df895b9246d1d56a"
+            ]
+        ]
+    },
+    {
+        "id": "030ff597d2f5b94d",
+        "type": "mqtt in",
+        "z": "e1dcb74d3bfa419c",
+        "name": "",
+        "topic": "tni/tesa/task3",
+        "qos": "1",
+        "datatype": "auto-detect",
+        "broker": "8c84ed58184398c5",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 130,
+        "y": 1040,
+        "wires": [
+            [
+                "44381c801a04c424"
+            ]
+        ]
+    },
+    {
+        "id": "44381c801a04c424",
+        "type": "json",
+        "z": "e1dcb74d3bfa419c",
+        "name": "",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 410,
+        "y": 1040,
+        "wires": [
+            [
+                "404448ea5c431254"
+            ]
+        ]
+    },
+    {
+        "id": "404448ea5c431254",
+        "type": "function",
+        "z": "e1dcb74d3bfa419c",
+        "name": "function 4",
+        "func": "let data = msg.payload;\n\n// ป้องกันปัญหาข้อมูลเข้าเป็น String โดยแปลงเป็น Object ทันที\nif (typeof data === 'string') {\n    try {\n        data = JSON.parse(data);\n    } catch (e) {\n        data = {};\n    }\n}\n\nlet source = data.source || 'unknown';\nlet imageName = data.image_name ? `'${data.image_name}'` : 'NULL';\nlet classId = Number.isInteger(data.class_id) ? data.class_id : 0;\nlet className = data.class_name || 'unknown';\nlet confidence = typeof data.confidence === 'number' ? data.confidence : 0.0;\n\nlet bboxX = (data.bbox && typeof data.bbox.x === 'number') ? data.bbox.x : 'NULL';\nlet bboxY = (data.bbox && typeof data.bbox.y === 'number') ? data.bbox.y : 'NULL';\n\nmsg.topic = `\nINSERT INTO yolo_predictions (source, image_name, class_id, class_name, confidence, bbox_x, bbox_y)\nVALUES ('${source}', ${imageName}, ${classId}, '${className}', ${confidence}, ${bboxX}, ${bboxY});\n`;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 1040,
+        "wires": [
+            [
+                "2e3264650997ed59",
+                "7f27c86e84cc96ae"
+            ]
+        ]
+    },
+    {
+        "id": "ea29e8f4b9c4436c",
+        "type": "debug",
+        "z": "e1dcb74d3bfa419c",
+        "name": "debug 6",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1040,
+        "y": 1040,
+        "wires": []
+    },
+    {
+        "id": "f836eefa9a6219a1",
+        "type": "inject",
+        "z": "e1dcb74d3bfa419c",
+        "name": "Create Table",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1070,
+        "y": 1200,
+        "wires": [
+            [
+                "6632d3be8d9c75b8"
+            ]
+        ]
+    },
+    {
+        "id": "6632d3be8d9c75b8",
+        "type": "function",
+        "z": "e1dcb74d3bfa419c",
+        "name": "SQL Create",
+        "func": "msg.topic = `\nCREATE TABLE IF NOT EXISTS yolo_predictions (\n    id            INTEGER PRIMARY KEY AUTOINCREMENT,\n    source        TEXT    NOT NULL,\n    image_name    TEXT,\n    class_id      INTEGER NOT NULL,\n    class_name    TEXT    NOT NULL,\n    confidence    REAL    NOT NULL,\n    bbox_x        REAL,\n    bbox_y        REAL,\n    created_at    TEXT    NOT NULL DEFAULT (datetime('now','localtime'))\n);`;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1290,
+        "y": 1200,
+        "wires": [
+            [
+                "9678b07ee0f6aca1"
+            ]
+        ]
+    },
+    {
+        "id": "14613c86ab91a0cd",
+        "type": "inject",
+        "z": "e1dcb74d3bfa419c",
+        "name": "Select All",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 840,
+        "y": 1260,
+        "wires": [
+            [
+                "d8f19a597329d4e6"
+            ]
+        ]
+    },
+    {
+        "id": "2e0b5eaff6bd483a",
+        "type": "inject",
+        "z": "e1dcb74d3bfa419c",
+        "name": "Clear Data",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1060,
+        "y": 1320,
+        "wires": [
+            [
+                "3dfe944d408fd13a"
+            ]
+        ]
+    },
+    {
+        "id": "d8f19a597329d4e6",
+        "type": "function",
+        "z": "e1dcb74d3bfa419c",
+        "name": "SQL Select",
+        "func": "msg.topic = \"SELECT * FROM yolo_predictions;\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1050,
+        "y": 1260,
+        "wires": [
+            [
+                "9678b07ee0f6aca1"
+            ]
+        ]
+    },
+    {
+        "id": "3dfe944d408fd13a",
+        "type": "function",
+        "z": "e1dcb74d3bfa419c",
+        "name": "SQL Clear",
+        "func": "msg.topic = \"DELETE FROM yolo_predictions\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1290,
+        "y": 1320,
+        "wires": [
+            [
+                "9678b07ee0f6aca1"
+            ]
+        ]
+    },
+    {
+        "id": "0193626118cfd921",
+        "type": "debug",
+        "z": "e1dcb74d3bfa419c",
+        "name": "debug 7",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1720,
+        "y": 1260,
+        "wires": []
+    },
+    {
+        "id": "2e3264650997ed59",
+        "type": "sqlite",
+        "z": "e1dcb74d3bfa419c",
+        "mydb": "2ab8c5ef55b088f7",
+        "sqlquery": "msg.topic",
+        "sql": "",
+        "name": "",
+        "x": 810,
+        "y": 1040,
+        "wires": [
+            [
+                "ea29e8f4b9c4436c",
+                "d8f19a597329d4e6"
+            ]
+        ]
+    },
+    {
+        "id": "9678b07ee0f6aca1",
+        "type": "sqlite",
+        "z": "e1dcb74d3bfa419c",
+        "mydb": "2ab8c5ef55b088f7",
+        "sqlquery": "msg.topic",
+        "sql": "",
+        "name": "",
+        "x": 1510,
+        "y": 1260,
+        "wires": [
+            [
+                "0193626118cfd921"
+            ]
+        ]
+    },
+    {
+        "id": "7f27c86e84cc96ae",
+        "type": "debug",
+        "z": "e1dcb74d3bfa419c",
+        "name": "debug 8",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 600,
+        "y": 1140,
+        "wires": []
+    },
+    {
+        "id": "8c84ed58184398c5",
+        "type": "mqtt-broker",
+        "name": "MQTT Broker",
+        "broker": "10.10.10.20",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "2ab8c5ef55b088f7",
+        "type": "sqlitedb",
+        "db": "/data/iot_data.db",
+        "mode": "RWC"
+    },
+    {
+        "id": "b77f22eee7b11047",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-node-sqlite": "2.0.1"
+        }
+    }
+]
