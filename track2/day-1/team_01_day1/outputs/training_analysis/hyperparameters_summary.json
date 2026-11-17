@@ -1,0 +1,22 @@
+{
+  "metrics": {
+    "val_holdout_accuracy": 97.14,
+    "val_cnn_only_accuracy": 97.14,
+    "overall_bean_accuracy": 99.43,
+    "best_val_loss": 0.2043
+  },
+  "hyperparameters": {
+    "epochs": 45,
+    "batch_size": 28,
+    "lr": 0.0012,
+    "weight_decay": 0.0002,
+    "label_smoothing": 0.06,
+    "mixup_alpha": 0.2,
+    "img_size": 224,
+    "aug_repeats": 4,
+    "seed": 42
+  },
+  "weights_file": "D:\\Coding\\TESA_2026\\Tesa-Top-Gun-Relly-2026-AIbitto\\track2\\day-1\\team_XX_day1\\weights\\best.pt",
+  "weights_size_mb": 10.37,
+  "elapsed_seconds": 559.94
+}
