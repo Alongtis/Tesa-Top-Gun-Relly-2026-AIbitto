@@ -168,7 +168,8 @@ def letterbox_image(
     top, bottom = dh // 2, dh - (dh // 2)
     left, right = dw // 2, dw - (dw // 2)
 
-    resized = cv2.resize(img_bgr, (nw, nh), interpolation=cv2.INTER_LINEAR)
+    interp = cv2.INTER_AREA if r < 1.0 else cv2.INTER_LINEAR
+    resized = cv2.resize(img_bgr, (nw, nh), interpolation=interp)
     padded = cv2.copyMakeBorder(resized, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114))
     return padded, (nw / float(w), nh / float(h)), (left, top)
 
@@ -393,9 +394,23 @@ def predict_image(
                 }
             )
     else:
-        res = engine["model"].predict(roi_bgr, imgsz=img_size, conf=conf_thresh, iou=0.60, verbose=False)[0]
+        # ย่อด้วย INTER_AREA ก่อนส่งเข้า Ultralytics/NCNN เพื่อป้องกันการเกิด Aliasing ของพื้นผิวเมล็ดเมื่อย่อจากภาพความละเอียดสูง
+        if max(rh, rw) > img_size:
+            scale_u = img_size / float(max(rh, rw))
+            uw, uh = max(32, int(round(rw * scale_u))), max(32, int(round(rh * scale_u)))
+            infer_input_bgr = cv2.resize(roi_bgr, (uw, uh), interpolation=cv2.INTER_AREA)
+            u_sx = rw / float(uw)
+            u_sy = rh / float(uh)
+        else:
+            infer_input_bgr = roi_bgr
+            u_sx = 1.0
+            u_sy = 1.0
+
+        res = engine["model"].predict(infer_input_bgr, imgsz=img_size, conf=conf_thresh, iou=0.60, verbose=False)[0]
         if res.masks is not None and res.boxes is not None and len(res.boxes) > 0:
-            boxes_xyxy = res.boxes.xyxy.detach().cpu().numpy()
+            boxes_xyxy = res.boxes.xyxy.detach().cpu().numpy().copy()
+            boxes_xyxy[:, [0, 2]] *= u_sx
+            boxes_xyxy[:, [1, 3]] *= u_sy
             confs = res.boxes.conf.detach().cpu().numpy()
             cls_ids = res.boxes.cls.detach().cpu().numpy().astype(int)
             masks_data = res.masks.data.detach().cpu().numpy()
