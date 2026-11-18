@@ -41,6 +41,7 @@ pip install -r requirements.txt
 ```
 
 > **หมายเหตุ (Raspberry Pi OS Lite / Headless):**
+>
 > - หากระบบไม่มี library ของหน้าจอและพบ error `libGL.so.1` จากแพ็กเกจ `opencv-python` ที่ติดมากับ `ultralytics` ให้ติดตั้งเพิ่มด้วย `sudo apt update && sudo apt install -y libgl1 libglib2.0-0`
 > - หากต้องการติดตั้งแบบเบาสุด (~60 MB ไม่ลง PyTorch/Ultralytics) ให้ติดตั้งเฉพาะ `pip install opencv-python-headless numpy pillow onnxruntime` ตัว `infer.py` จะสลับไปใช้ `weights/best.onnx` ให้อัตโนมัติ
 
@@ -72,7 +73,7 @@ python infer.py --input test/ --weights weights/ --out outputs/
 - `weights/best.pt` (5.77 MB): ไฟล์ checkpoint ฝั่ง PyTorch Ultralytics สำหรับเก็บอ้างอิงหรือ Fine-tune ต่อ
 - `weights/model_meta.npz` (1.06 MB): ข้อมูล `img_size`, รายชื่อคลาส 7 คลาส, และสถิติ 28 Physical Features จากชุดเทรน
 
-## พฤติกรรมโปรแกรมและรูปแบบผลลัพธ์ (`DAY2_INFER_SPEC.md`)
+## พฤติกรรมโปรแกรมและรูปแบบผลลัพธ์
 
 - **`outputs/seg_mask/<stem>.png`:** ภาพ Single-channel `uint16` ขนาดเท่าภาพต้นฉบับ (`0` = พื้นหลัง, `1..N` = ID ของแต่ละเม็ด; หากไม่พบเม็ดจะเป็นค่า `0` ทั้งภาพ)
 - **`outputs/predictions.json`:** UTF-8 JSON Array ประกอบด้วย `image_name` และรายการ `objects` (`id`, `class` ตัวพิมพ์เล็ก, `polygon` อย่างน้อย 3 จุด; หากไม่พบเม็ด `objects` เป็น `[]`)
