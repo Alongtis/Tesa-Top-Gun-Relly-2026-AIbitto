@@ -99,6 +99,10 @@ bool measureOnce(float &elapsed) {
 
 float measureCapacitance() {
 
+    // Final correction fitted to measured reference capacitors
+    const float CAL_GAIN = 1.038508f;
+    const float CAL_OFFSET_PF = 0.812651f;
+
     float totalTime = 0;
     int validSamples = 0;
 
@@ -118,10 +122,15 @@ float measureCapacitance() {
 
     float avgTime = totalTime / validSamples;
 
+    // Original timing-to-capacitance calibration
     float capacitance =
         (avgTime - OFFSET) / SLOPE;
 
-    return max(0.0f, capacitance);
+    // Apply final correction once, before clamping
+    float correctedCapacitance =
+        CAL_GAIN * capacitance + CAL_OFFSET_PF;
+
+    return max(0.0f, correctedCapacitance);
 }
 
 // =================================
