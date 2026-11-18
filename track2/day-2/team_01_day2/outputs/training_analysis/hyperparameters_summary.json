@@ -1,0 +1,20 @@
+{
+  "model": "yolo11n-seg.pt",
+  "img_size": 640,
+  "epochs_trained": 120,
+  "batch_size": 8,
+  "train_minutes": 4.35,
+  "day2_benchmark_mean_mask_iou": 0.9647,
+  "day2_benchmark_counting_accuracy": 1.0,
+  "day2_simulated_p1_score_out_of_7_5": 7.24,
+  "day2_simulated_p2_score_out_of_7_5": 7.5,
+  "day2_simulated_total_seg_score_out_of_15": 14.74,
+  "matched_class_accuracy": 1.0,
+  "f1_at_iou_0_95": 0.931,
+  "exported_weights": [
+    "best_ncnn_model",
+    "model_meta.npz",
+    "best.onnx",
+    "best.pt"
+  ]
+}

@@ -1,0 +1,25 @@
+description: Ultralytics YOLO11n-seg model trained on /content/datasets_seg/beans_seg.yaml
+author: Ultralytics
+date: "2026-11-18T06:33:45.406175+00:00"
+version: "8.4.215"
+license: AGPL-3.0 License (https://ultralytics.com/license)
+docs: https://docs.ultralytics.com
+stride: 32
+task: segment
+head: Segment
+batch: 1
+imgsz:
+- 640
+- 640
+names:
+  0: good
+  1: shell
+  2: black
+  3: husk
+  4: broken
+  5: parchment
+  6: immature
+args:
+  quantize: null
+channels: 3
+end2end: false
