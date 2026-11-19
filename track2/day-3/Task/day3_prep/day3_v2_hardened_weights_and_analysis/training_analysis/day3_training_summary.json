@@ -1,0 +1,36 @@
+{
+  "base_weights": "day3_v1_best.pt",
+  "img_size": 640,
+  "epochs_configured": 120,
+  "batch_size": 8,
+  "lr0": 0.0005,
+  "train_minutes": 6.43,
+  "before_day2_baseline": {
+    "mean_iou": 0.9632,
+    "counting_acc": 0.9904,
+    "cls_acc": 0.9184
+  },
+  "after_day3_finetuned": {
+    "mean_iou": 0.9694,
+    "counting_acc": 0.9973,
+    "p1_score_out_of_15": 14.54,
+    "p2_score_out_of_15": 14.96,
+    "cls_acc": 0.9869,
+    "real_val": {
+      "iou": 0.9529,
+      "count": 1.0,
+      "cls_acc": 1.0
+    },
+    "pile_val": {
+      "iou": 0.9719,
+      "count": 0.9969,
+      "cls_acc": 0.986
+    }
+  },
+  "exported_weights": [
+    "best.onnx",
+    "best.pt",
+    "best_ncnn_model",
+    "model_meta.npz"
+  ]
+}

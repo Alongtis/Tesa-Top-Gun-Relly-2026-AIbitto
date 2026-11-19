@@ -119,7 +119,8 @@ def ensure_dataset_ready() -> Tuple[Path, str]:
 
     if not (DATASETS_SEG_DIR / "images" / "train").exists() and IN_COLAB:
         zip_candidates = (
-            sorted(Path("/content").glob("*final*.zip"))
+            sorted(Path("/content").glob("*v2*.zip"))
+            or sorted(Path("/content").glob("*final*.zip"))
             or sorted(Path("/content").glob("*day3*.zip"))
             or sorted(Path("/content").glob("*.zip"))
         )
@@ -127,8 +128,8 @@ def ensure_dataset_ready() -> Tuple[Path, str]:
             try:
                 from google.colab import files  # type: ignore
                 print("=" * 74)
-                print("กรุณาอัปโหลดไฟล์ 'datasets_day3_final_colab.zip'")
-                print("(จากโฟลเดอร์ track2/day-3/Task/day3_prep/datasets_day3_final_colab.zip)")
+                print("กรุณาอัปโหลดไฟล์ 'datasets_day3_v2_hardened_colab.zip'")
+                print("(จากโฟลเดอร์ track2/day-3/Task/day3_prep/datasets_day3_v2_hardened_colab.zip)")
                 print("=" * 74)
                 uploaded = files.upload()
                 zip_candidates = [Path("/content") / k for k in uploaded.keys() if k.endswith(".zip")]
@@ -164,14 +165,15 @@ def ensure_dataset_ready() -> Tuple[Path, str]:
     )
     yaml_path.write_text(yaml_text, encoding="utf-8")
 
-    # ค้นหา Day 2 best.pt สำหรับ Warm-Start Fine-Tuning
-    day2_candidates = [
+    # ค้นหา Weights เริ่มต้นสำหรับ Warm-Start Fine-Tuning (ใช้ Day-3 V1 best.pt ก่อนถ้าเป็นแพ็ก V2 Hardened)
+    pretrained_candidates = [
+        DATASETS_SEG_DIR / "pretrained" / "day3_v1_best.pt",
         DATASETS_SEG_DIR / "pretrained" / "day2_best.pt",
         BASE_DIR.parent.parent / "day-2" / "team_01_day2" / "weights" / "best.pt",
         Path("/content/day2_best.pt"),
     ]
     base_weights = "yolo11n-seg.pt"
-    for cand in day2_candidates:
+    for cand in pretrained_candidates:
         if cand.exists() and cand.stat().st_size > 1_000_000:
             base_weights = str(cand)
             break
@@ -490,37 +492,47 @@ def main() -> None:
     val_img_dir = DATASETS_SEG_DIR / "images" / "val"
     val_gt_dir = DATASETS_SEG_DIR / "val_gt_day3_format"
 
-    # วัด Baseline ก่อน Fine-Tune ด้วย Day 2 best.pt (ถ้ามี) เพื่อเปรียบเทียบก่อน-หลังแบบชัดเจน
+    info_p = DATASETS_SEG_DIR / "dataset_info.json"
+    ds_mode = json.loads(info_p.read_text(encoding="utf-8")).get("mode", "full") if info_p.exists() else "full"
+    is_v2_polish = (ds_mode == "v2_hardened") or ("day3_v1" in Path(base_weights).name)
+
+    eff_lr0 = float(os.environ.get("DAY3_LR0", "3e-4" if is_v2_polish else str(LR0)))
+    eff_epochs = int(os.environ.get("DAY3_EPOCHS", "100" if is_v2_polish else str(EPOCHS)))
+    eff_cls = 1.4 if is_v2_polish else 1.3
+    eff_hsv_v = 0.30 if is_v2_polish else 0.24
+    baseline_tag = "BEFORE: Day-3 V1 Baseline" if is_v2_polish else "BEFORE: Day-2 Baseline"
+
+    # วัด Baseline ก่อน Fine-Tune เพื่อเปรียบเทียบก่อน-หลังแบบชัดเจน
     baseline_res: Optional[Dict[str, Any]] = None
     if Path(base_weights).exists() and val_gt_dir.exists():
-        print("\n[STEP 1.5/5] Evaluating BEFORE Fine-Tuning (Day-2 Baseline on Day-3 Zero-Leakage Val)...")
+        print(f"\n[STEP 1.5/5] Evaluating BEFORE Fine-Tuning ({baseline_tag})...")
         baseline_res = evaluate_model_on_val_bundle(
-            YOLO(base_weights), val_img_dir, val_gt_dir, label="BEFORE: Day-2 Baseline"
+            YOLO(base_weights), val_img_dir, val_gt_dir, label=baseline_tag
         )
 
     # 2. Warm-Start Fine-Tuning YOLO11n-seg สำหรับกองเมล็ดคละคลาส Day 3
-    print(f"\n[STEP 2/5] Fine-Tuning YOLO11n-seg (epochs={EPOCHS}, imgsz={IMG_SIZE}, batch={BATCH_SIZE}, lr0={LR0})...")
+    print(f"\n[STEP 2/5] Fine-Tuning YOLO11n-seg (mode={ds_mode}, epochs={eff_epochs}, imgsz={IMG_SIZE}, batch={BATCH_SIZE}, lr0={eff_lr0})...")
     runs_dir = BASE_DIR / "runs_day3"
     model = YOLO(base_weights)
     t0 = time.perf_counter()
     model.train(
         data=str(yaml_path),
-        epochs=EPOCHS,
+        epochs=eff_epochs,
         imgsz=IMG_SIZE,
         batch=BATCH_SIZE,
         device=device_str,
-        lr0=LR0,
+        lr0=eff_lr0,
         lrf=LRF,
         weight_decay=WEIGHT_DECAY,
         warmup_epochs=WARMUP_EPOCHS,
         patience=PATIENCE,
         optimizer="AdamW",
         cos_lr=True,
-        # เพิ่มน้ำหนัก Classification Loss สำหรับ 7 คลาสคละกัน + ลด HSV Distortion ไม่ให้สีคลาสเพี้ยน
-        cls=1.3,
-        hsv_h=0.008,
-        hsv_s=0.20,
-        hsv_v=0.24,
+        # เพิ่มน้ำหนัก Classification Loss สำหรับ 7 คลาสคละกัน + คง HSV Hue แคบ (ใช้ Offline White-Balance แทนเพื่อคงความต่างสีระหว่างคลาส)
+        cls=eff_cls,
+        hsv_h=0.010 if is_v2_polish else 0.008,
+        hsv_s=0.22 if is_v2_polish else 0.20,
+        hsv_v=eff_hsv_v,
         degrees=180.0,
         scale=0.35,
         flipud=0.5,
@@ -532,7 +544,7 @@ def main() -> None:
         overlap_mask=True,
         mask_ratio=4,
         project=str(runs_dir),
-        name="yolo11n_seg_day3_mixed",
+        name="yolo11n_seg_day3_v2_hardened" if is_v2_polish else "yolo11n_seg_day3_mixed",
         exist_ok=True,
         seed=SEED,
         verbose=True,
@@ -703,9 +715,12 @@ def main() -> None:
 
     # หากอยู่บน Google Colab ให้แพ็ก weights/ + training_analysis/ ดาวน์โหลดทันที
     if IN_COLAB:
-        info_p = DATASETS_SEG_DIR / "dataset_info.json"
-        ds_mode = json.loads(info_p.read_text(encoding="utf-8")).get("mode", "final") if info_p.exists() else "final"
-        zip_name = "day3_final_weights_and_analysis.zip" if ds_mode == "full" else "day3_trained_weights_and_analysis.zip"
+        if ds_mode == "v2_hardened":
+            zip_name = "day3_v2_hardened_weights_and_analysis.zip"
+        elif ds_mode == "full":
+            zip_name = "day3_final_weights_and_analysis.zip"
+        else:
+            zip_name = "day3_trained_weights_and_analysis.zip"
         bundle_zip = Path("/content") / zip_name
         with zipfile.ZipFile(bundle_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             for f in WEIGHTS_DIR.rglob("*"):

@@ -1,7 +1,7 @@
 {
-  "mode": "full",
-  "train_images": 153,
-  "val_images": 17,
+  "mode": "v2_hardened",
+  "train_images": 225,
+  "val_images": 23,
   "day3_train_real_beans": {
     "good": 27,
     "shell": 17,
@@ -12,21 +12,21 @@
     "immature": 12
   },
   "train_class_instances": {
-    "black": 359,
-    "broken": 374,
-    "good": 435,
-    "husk": 304,
-    "immature": 339,
-    "parchment": 356,
-    "shell": 346
+    "black": 510,
+    "broken": 523,
+    "good": 587,
+    "husk": 477,
+    "immature": 477,
+    "parchment": 525,
+    "shell": 501
   },
   "val_class_instances": {
-    "black": 34,
-    "broken": 35,
-    "good": 54,
-    "husk": 35,
-    "immature": 49,
-    "parchment": 45,
-    "shell": 35
+    "black": 46,
+    "broken": 45,
+    "good": 71,
+    "husk": 47,
+    "immature": 66,
+    "parchment": 58,
+    "shell": 48
   }
 }

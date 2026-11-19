@@ -121,7 +121,9 @@ def smooth_closed_contour(cnt: np.ndarray, sigma: float = 1.8) -> np.ndarray:
 
 
 def detect_active_pile_roi(img_bgr: np.ndarray) -> Tuple[int, int, int, int]:
-    """ตรวจหาขอบเขตบริเวณที่มีเมล็ดกาแฟวางอยู่สำหรับภาพความละเอียดสูง (เช่น 3072x4096)"""
+    """ตรวจหาขอบเขตบริเวณที่มีเมล็ดกาแฟวางอยู่สำหรับภาพความละเอียดสูง (เช่น 3072x4096)
+    รองรับทั้งพื้นสว่างและพื้นเข้ม (ป้องกันการตัดเมล็ดตกขอบบนโต๊ะไม้เข้ม/ขอบภาพ)
+    """
     orig_h, orig_w = img_bgr.shape[:2]
     if max(orig_h, orig_w) <= 1500:
         return (0, 0, orig_w, orig_h)
@@ -133,27 +135,44 @@ def detect_active_pile_roi(img_bgr: np.ndarray) -> Tuple[int, int, int, int]:
 
     lab = cv2.cvtColor(small, cv2.COLOR_BGR2Lab).astype(np.float32)
     L_c, a_c, b_c = cv2.split(lab)
+
+    # หากพื้นหลังโดยรวมมีสีเข้ม (เช่น โต๊ะไม้เข้ม/โต๊ะดำ) ให้ใช้ภาพเต็มเพื่อความปลอดภัย 100% ไม่ตัดเมล็ดเข้มทิ้ง
+    center_L = float(np.median(L_c[int(sh * 0.15) : int(sh * 0.85), int(sw * 0.15) : int(sw * 0.85)]))
+    if center_L < 120.0:
+        return (0, 0, orig_w, orig_h)
+
     ksize = max(31, int(round(min(sw, sh) * 0.22)) | 1)
     bg_L = cv2.GaussianBlur(L_c, (ksize, ksize), 0)
     bg_a = cv2.GaussianBlur(a_c, (ksize, ksize), 0)
     bg_b = cv2.GaussianBlur(b_c, (ksize, ksize), 0)
 
-    dark_diff = np.clip(bg_L - L_c, 0, 255)
+    # ใช้ความต่างความสว่างแบบ 2 ทิศทาง (abs) เพื่อให้จับได้ทั้งเม็ดเข้มและเม็ดสว่างกว่าพื้นหลัง
+    luma_diff = np.abs(bg_L - L_c)
     chroma_diff = np.sqrt((a_c - bg_a) ** 2 + (b_c - bg_b) ** 2)
-    score = np.clip(dark_diff * 0.75 + chroma_diff * 1.90, 0, 255).astype(np.uint8)
+    score = np.clip(luma_diff * 0.75 + chroma_diff * 1.90, 0, 255).astype(np.uint8)
 
-    mx, mt, mb = int(sw * 0.05), int(sh * 0.05), int(sh * 0.88)
+    mx, my = int(sw * 0.02), int(sh * 0.02)
     roi_m = np.zeros_like(score)
-    roi_m[mt:mb, mx : sw - mx] = 255
+    roi_m[my : sh - my, mx : sw - mx] = 255
     masked = cv2.bitwise_and(score, score, mask=roi_m)
 
-    otsu_t, _ = cv2.threshold(masked[mt:mb, mx : sw - mx], 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    otsu_t, _ = cv2.threshold(masked[my : sh - my, mx : sw - mx], 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     _, bin_m = cv2.threshold(masked, max(28.0, float(otsu_t) * 1.05), 255, cv2.THRESH_BINARY)
     bin_m = cv2.morphologyEx(bin_m, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
 
     cnts, _ = cv2.findContours(bin_m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     min_a = (sw * sh) * 0.0004
-    valid_boxes = [cv2.boundingRect(c) for c in cnts if cv2.contourArea(c) >= min_a]
+    valid_boxes: List[Tuple[int, int, int, int]] = []
+    for c in cnts:
+        if cv2.contourArea(c) < min_a:
+            continue
+        bx, by, bw, bh = cv2.boundingRect(c)
+        touches_edge = (bx <= mx + 4) or (by <= my + 4) or (bx + bw >= sw - mx - 4) or (by + bh >= sh - my - 4)
+        aspect = max(bw / float(max(bh, 1)), bh / float(max(bw, 1)))
+        # กรองแถบขอบโต๊ะไม้หรือขอบเงายาวๆ ที่ติดขอบภาพออก ไม่ให้ดึงกรอบ ROI พัง
+        if touches_edge and (bw > sw * 0.50 or bh > sh * 0.50 or aspect > 3.2):
+            continue
+        valid_boxes.append((bx, by, bw, bh))
     if not valid_boxes:
         return (0, 0, orig_w, orig_h)
 
@@ -163,7 +182,7 @@ def detect_active_pile_roi(img_bgr: np.ndarray) -> Tuple[int, int, int, int]:
     y2 = max(b[1] + b[3] for b in valid_boxes) / scale
 
     span = max(x2 - x1, y2 - y1, 450.0)
-    side = int(round(span * 1.32))
+    side = int(round(span * 1.38))
     if side >= int(min(orig_w, orig_h) * 0.82):
         return (0, 0, orig_w, orig_h)
 

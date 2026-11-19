@@ -417,6 +417,7 @@ def main() -> None:
     parser.add_argument("--weights", type=Path, default=DEFAULT_WEIGHTS_DIR, help="Path to model weights folder or file")
     parser.add_argument("--out", type=Path, default=DEFAULT_RESULTS_DIR, help="Output folder for reports & visuals")
     parser.add_argument("--conf", type=float, default=0.28, help="Confidence threshold (default: 0.28 matching infer.py)")
+    parser.add_argument("--compare", type=Path, default=None, help="Optional baseline stress_report.json to print Before-vs-After delta table")
     args = parser.parse_args()
 
     labels_path = args.dataset / "labels.json"
@@ -662,6 +663,45 @@ def main() -> None:
     print(f"\n[SAVED] Dashboard    -> {dash_path}")
     print(f"[SAVED] Worst 6 Grid -> {args.out / 'worst_cases_diagnostic.jpg'}")
     print(f"[SAVED] JSON Report  -> {args.out / 'stress_report.json'}")
+
+    if args.compare is not None and args.compare.exists():
+        base = json.loads(args.compare.read_text(encoding="utf-8"))
+        b_cats = {c["category"]: c for c in base.get("by_category", [])}
+        print("\n" + "=" * 96)
+        print(f"HEAD-TO-HEAD COMPARISON: Baseline ({args.compare.parent.name})  --->  Current ({args.out.name})")
+        print("-" * 96)
+        print(f"{'CATEGORY':<24} | {'P1 (IoU/15)':^21} | {'P2 (Cnt/15)':^21} | {'Class Acc (%)':^21}")
+        print("-" * 96)
+        for cur in cat_summary:
+            bc = b_cats.get(cur["category"])
+            if not bc:
+                continue
+            dp1 = cur["p1"] - bc["p1"]
+            dp2 = cur["p2"] - bc["p2"]
+            dcl = (cur["cls_acc"] - bc["cls_acc"]) * 100.0
+            print(
+                f"{cur['category']:<24} | {bc['p1']:5.2f} -> {cur['p1']:5.2f} ({dp1:+5.2f}) "
+                f"| {bc['p2']:5.2f} -> {cur['p2']:5.2f} ({dp2:+5.2f}) "
+                f"| {bc['cls_acc']*100:5.1f} -> {cur['cls_acc']*100:5.1f} ({dcl:+5.1f}%)"
+            )
+        bo = base.get("overall", {})
+        if bo:
+            print("-" * 96)
+            dp1 = overall["p1"] - bo["p1"]
+            dp2 = overall["p2"] - bo["p2"]
+            dcl = (overall["cls_acc"] - bo["cls_acc"]) * 100.0
+            print(
+                f"{'OVERALL SUITE':<24} | {bo['p1']:5.2f} -> {overall['p1']:5.2f} ({dp1:+5.2f}) "
+                f"| {bo['p2']:5.2f} -> {overall['p2']:5.2f} ({dp2:+5.2f}) "
+                f"| {bo['cls_acc']*100:5.1f} -> {overall['cls_acc']*100:5.1f} ({dcl:+5.1f}%)"
+            )
+            print(
+                f"  FP: {bo.get('fp', 0)} -> {overall['fp']} ({overall['fp']-bo.get('fp', 0):+d})  |  "
+                f"FN: {bo.get('fn', 0)} -> {overall['fn']} ({overall['fn']-bo.get('fn', 0):+d})  |  "
+                f"ROI-CLIP: {bo.get('roi_clipped_total', 0)} -> {overall['roi_clipped_total']}  |  "
+                f"DefectRatio MAE: {bo.get('defect_ratio_mae', 0):.4f} -> {overall['defect_ratio_mae']:.4f}"
+            )
+        print("=" * 96)
 
 
 if __name__ == "__main__":

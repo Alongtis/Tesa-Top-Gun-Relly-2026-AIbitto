@@ -40,11 +40,13 @@ TRACK2_DIR = DAY3_DIR.parent
 DAY3_DS_DIR = TASK_DIR / "Dataset_Day-3"
 DAY2_REAL_GT_DIR = TRACK2_DIR / "day-2" / "team_01_day2" / "task" / "datasets_seg" / "ground_truth_day2_format" / "real_21_full"
 DAY2_BEST_PT = TRACK2_DIR / "day-2" / "team_01_day2" / "weights" / "best.pt"
+DAY3_V1_BEST_PT = DAY3_DIR / "team_01_day3" / "weights" / "best.pt"
 
 OUT_DS_DIR = SCRIPT_DIR / "datasets_seg_day3"
 QUALITY_DIR = SCRIPT_DIR / "quality_inspection"
 COLAB_ZIP_HOLDOUT = SCRIPT_DIR / "datasets_day3_colab.zip"
 COLAB_ZIP_FULL = SCRIPT_DIR / "datasets_day3_final_colab.zip"
+COLAB_ZIP_V2 = SCRIPT_DIR / "datasets_day3_v2_hardened_colab.zip"
 
 CLASSES: List[str] = ["good", "shell", "black", "husk", "broken", "parchment", "immature"]
 CLASS_TO_IDX: Dict[str, int] = {c: i for i, c in enumerate(CLASSES)}
@@ -305,6 +307,85 @@ def transform_bean_clean(
     return c_bgr, hard_mask, alpha
 
 
+def apply_v2_domain_effect(img_bgr: np.ndarray, effect: str, rng: random.Random) -> Tuple[np.ndarray, int]:
+    """ใส่สภาพแสง/White-Balance/ISO Noise/Blur แบบสมจริงสำหรับชุดเทรน V2 Hardened
+    (คงความต่างสีเชิงสัมพัทธ์ระหว่างคลาส เพื่อให้โมเดลเรียนรู้ Color Constancy จริง)
+    """
+    h, w = img_bgr.shape[:2]
+    f = img_bgr.astype(np.float32)
+    np_rng = np.random.default_rng(rng.randint(0, 2**31 - 1))
+    jq = 84
+
+    if effect == "cool_wb":
+        f[:, :, 0] *= rng.uniform(1.14, 1.28)
+        f[:, :, 1] *= rng.uniform(0.99, 1.05)
+        f[:, :, 2] *= rng.uniform(0.74, 0.86)
+    elif effect == "warm_wb":
+        f[:, :, 0] *= rng.uniform(0.64, 0.78)
+        f[:, :, 1] *= rng.uniform(0.94, 1.00)
+        f[:, :, 2] *= rng.uniform(1.14, 1.28)
+    elif effect == "dim_dark":
+        f = f * rng.uniform(0.48, 0.68) + np_rng.normal(0, rng.uniform(3.0, 7.0), f.shape).astype(np.float32)
+    elif effect == "split_shadow":
+        yy = np.linspace(0, 1, h, dtype=np.float32)[:, None]
+        xx = np.linspace(0, 1, w, dtype=np.float32)[None, :]
+        a, b = rng.uniform(0.4, 0.9), rng.uniform(0.4, 0.9)
+        diag = (xx * a + yy * b) - rng.uniform(0.45, 0.80)
+        m = 1.0 / (1.0 + np.exp(-diag * rng.uniform(18.0, 28.0)))
+        gain = rng.uniform(0.44, 0.58) + rng.uniform(0.55, 0.72) * m
+        f = f * gain[:, :, None]
+    elif effect == "iso_noise":
+        sigma = rng.uniform(9.0, 20.0)
+        f = f + np_rng.normal(0, sigma, f.shape).astype(np.float32)
+        jq = rng.randint(65, 82)
+    elif effect == "cool_noise":
+        f[:, :, 0] *= rng.uniform(1.12, 1.22)
+        f[:, :, 2] *= rng.uniform(0.78, 0.88)
+        f = f + np_rng.normal(0, rng.uniform(8.0, 15.0), f.shape).astype(np.float32)
+    elif effect == "low_jpeg_blur":
+        out = np.clip(f, 0, 255).astype(np.uint8)
+        if rng.random() < 0.65:
+            out = cv2.GaussianBlur(out, (5, 5), rng.uniform(0.9, 1.8))
+        return out, rng.randint(25, 42)
+
+    return np.clip(f, 0, 255).astype(np.uint8), jq
+
+
+def make_empty_hard_negative(
+    kind: str,
+    paper_patches: List[np.ndarray],
+    wood_strip: np.ndarray,
+    rng: random.Random,
+    w: int = 960,
+    h: int = 960,
+) -> np.ndarray:
+    """สร้างภาพเปล่า 0 เม็ด (Hard Negative) เพื่อแก้ Ghost FP ตรงมุมขอบโต๊ะไม้/รอยพับ/ISO Noise"""
+    np_rng = np.random.default_rng(rng.randint(0, 2**31 - 1))
+    if kind == "paper_double_border_crease":
+        bg = make_paper_bg(paper_patches, w, h, rng, add_table_border=False)
+        bh1, bh2 = rng.randint(60, 115), rng.randint(60, 115)
+        bg[:bh1, :] = make_real_wood_bg(wood_strip, w, bh1, rng)
+        bg[-bh2:, :] = make_real_wood_bg(wood_strip, w, bh2, rng)
+        cx = int(w * rng.uniform(0.30, 0.70))
+        yy = np.arange(h, dtype=np.float32)[:, None]
+        xx = np.arange(w, dtype=np.float32)[None, :]
+        dist_line = np.abs((xx - cx) + (yy - h * 0.5) * rng.uniform(-0.22, 0.22))
+        crease = 1.0 - rng.uniform(0.08, 0.16) * np.exp(-(dist_line ** 2) / 150.0)
+        bg = np.clip(bg.astype(np.float32) * crease[:, :, None], 0, 255).astype(np.uint8)
+        return bg
+    if kind == "paper_border_noisy":
+        bg = make_paper_bg(paper_patches, w, h, rng, add_table_border=True, wood_strip=wood_strip)
+        noisy = bg.astype(np.float32) + np_rng.normal(0, rng.uniform(12.0, 21.0), bg.shape).astype(np.float32)
+        return np.clip(noisy, 0, 255).astype(np.uint8)
+    if kind == "dark_slate_empty":
+        base = np.full((h, w, 3), (38, 40, 45), dtype=np.float32)
+        hi = np_rng.normal(0, rng.uniform(5.0, 13.0), (h, w, 3)).astype(np.float32)
+        return np.clip(base + hi, 14, 90).astype(np.uint8)
+    # dark wood / synth wood empty
+    bg = make_real_wood_bg(wood_strip, w, h, rng) if rng.random() < 0.7 else make_synth_wood_bg(w, h, rng)
+    return np.clip(bg.astype(np.float32) * rng.uniform(0.65, 1.10), 12, 230).astype(np.uint8)
+
+
 def synthesize_mixed_pile(
     primary_bank: Dict[str, List[Dict[str, Any]]],
     replay_bank: Dict[str, List[Dict[str, Any]]] | None,
@@ -317,6 +398,7 @@ def synthesize_mixed_pile(
     rng: random.Random,
     canvas_size: Tuple[int, int] = (960, 960),
     max_overlap_ratio: float = 0.10,
+    scale_range: Tuple[float, float] = (0.76, 1.06),
 ) -> Tuple[np.ndarray, np.ndarray, List[Dict[str, Any]]]:
     cw, ch = canvas_size
     if bg_mode == "real_wood":
@@ -325,6 +407,17 @@ def synthesize_mixed_pile(
     elif bg_mode == "synth_wood":
         canvas = make_synth_wood_bg(cw, ch, rng)
         trim_px = 1.8
+    elif bg_mode == "dark_slate":
+        np_rng = np.random.default_rng(rng.randint(0, 2**31 - 1))
+        base = np.full((ch, cw, 3), (40, 42, 46), dtype=np.float32)
+        canvas = np.clip(base + np_rng.normal(0, 6.0, (ch, cw, 3)).astype(np.float32), 18, 85).astype(np.uint8)
+        trim_px = 2.0
+    elif bg_mode == "paper_both_borders":
+        canvas = make_paper_bg(paper_patches, cw, ch, rng, add_table_border=False)
+        bh1, bh2 = rng.randint(55, 105), rng.randint(55, 105)
+        canvas[:bh1, :] = make_real_wood_bg(wood_strip, cw, bh1, rng)
+        canvas[-bh2:, :] = make_real_wood_bg(wood_strip, cw, bh2, rng)
+        trim_px = 1.2
     elif bg_mode == "paper_border":
         canvas = make_paper_bg(paper_patches, cw, ch, rng, add_table_border=True, wood_strip=wood_strip)
         trim_px = 1.2
@@ -332,8 +425,8 @@ def synthesize_mixed_pile(
         canvas = make_paper_bg(paper_patches, cw, ch, rng, add_table_border=False)
         trim_px = 1.2
 
-    safe_top = 125 if bg_mode == "paper_border" else 35
-    safe_bot = ch - 125 if bg_mode == "paper_border" else ch - 35
+    safe_top = 120 if "border" in bg_mode else 35
+    safe_bot = ch - 120 if "border" in bg_mode else ch - 35
 
     raw_id_mask = np.zeros((ch, cw), dtype=np.uint16)
     placed_area: Dict[int, int] = {}
@@ -350,8 +443,8 @@ def synthesize_mixed_pile(
         pool = primary_bank[cls_name] if (use_primary and primary_bank.get(cls_name)) else replay_bank[cls_name]  # type: ignore[index]
         sample = rng.choice(pool)
 
-        # ขนาดเม็ดคละสเกลสมจริง (~110-185 px บน 960x960 ครอบคลุมทั้งระยะใกล้และไกล)
-        scale = (min(cw, ch) / 1120.0) * rng.uniform(0.76, 1.06)
+        # ขนาดเม็ดคละสเกลสมจริง (ปรับช่วงผ่าน scale_range ได้สำหรับภาพไกล/จ่อใกล้)
+        scale = (min(cw, ch) / 1120.0) * rng.uniform(scale_range[0], scale_range[1])
         angle = rng.uniform(0.0, 360.0)
         flip_h = rng.random() < 0.5
         gain = rng.uniform(0.92, 1.08)
@@ -484,16 +577,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Prepare Day 3 Multi-Class Segmentation Dataset")
     parser.add_argument(
         "--mode",
-        choices=("full", "holdout"),
-        default="full",
-        help="full: Final production dataset using ALL 16 real Day-3 images (124 beans); holdout: strict 13/3 val split",
+        choices=("full", "holdout", "v2_hardened"),
+        default="v2_hardened",
+        help="v2_hardened: Full 16 real images + WB/Noise/Hard-Neg/Immature hardening (warm-start from V1); full: V1 full; holdout: 13/3 val split",
     )
     args = parser.parse_args()
-    full_mode = args.mode == "full"
-    colab_zip_path = COLAB_ZIP_FULL if full_mode else COLAB_ZIP_HOLDOUT
+    v2_mode = args.mode == "v2_hardened"
+    full_mode = args.mode in ("full", "v2_hardened")
+    colab_zip_path = COLAB_ZIP_V2 if v2_mode else (COLAB_ZIP_FULL if full_mode else COLAB_ZIP_HOLDOUT)
 
-    rng = random.Random(2026111902 if full_mode else 20261119)
-    val_rng = random.Random(2026111999)
+    rng = random.Random(2026111909 if v2_mode else (2026111902 if full_mode else 20261119))
+    val_rng = random.Random(2026111988 if v2_mode else 2026111999)
 
     if OUT_DS_DIR.exists():
         shutil.rmtree(OUT_DS_DIR)
@@ -508,12 +602,15 @@ def main() -> None:
     ):
         sub.mkdir(parents=True, exist_ok=True)
 
-    # คัดลอก Day 2 best.pt เข้าไปในแพ็กเพื่อให้ Colab Fine-Tune ต่อได้ทันที (อัปโหลดแค่ไฟล์ zip เดียว)
+    # คัดลอก Pretrained Weights เข้าไปในแพ็กเพื่อให้ Colab Fine-Tune ต่อได้ทันที (อัปโหลดแค่ไฟล์ zip เดียว)
+    if v2_mode and DAY3_V1_BEST_PT.exists():
+        shutil.copy2(DAY3_V1_BEST_PT, OUT_DS_DIR / "pretrained" / "day3_v1_best.pt")
+        print(f"[PRETRAINED] Bundled Day 3 V1 Final best.pt -> {OUT_DS_DIR / 'pretrained' / 'day3_v1_best.pt'}")
     if DAY2_BEST_PT.exists():
         shutil.copy2(DAY2_BEST_PT, OUT_DS_DIR / "pretrained" / "day2_best.pt")
         print(f"[PRETRAINED] Bundled Day 2 best.pt -> {OUT_DS_DIR / 'pretrained' / 'day2_best.pt'}")
-    else:
-        print(f"[WARN] Day 2 best.pt not found at {DAY2_BEST_PT}")
+    elif not (v2_mode and DAY3_V1_BEST_PT.exists()):
+        print(f"[WARN] Pretrained weights not found at {DAY2_BEST_PT}")
 
     # 1. โหลดชุดข้อมูลจริง Day 3 (16 ภาพ, 124 เม็ด)
     day3_labels = json.loads((DAY3_DS_DIR / "labels.json").read_text(encoding="utf-8"))
@@ -734,6 +831,144 @@ def main() -> None:
             for o in objs:
                 train_cls_hist[o["class"]] += 1
 
+    # 3D: [V2 HARDENED ONLY] เสริมจุดอ่อนทั้ง 4 ข้อที่ตรวจพบจาก Brutal Stress Test (+72 ภาพเทรน)
+    v2_preview_tiles: List[np.ndarray] = []
+    if v2_mode:
+        print("\n[3D/4] Adding V2 Hardened Slices (+72 targeted stress-cure images: WB/Dim, ISO Noise, Empty Hard-Neg, Immature/Shell/Broken, Multi-Scale)...")
+
+        # Slice A (+24): White-Balance & Dim/Shadow Lighting Piles (แก้ cool/warm/dim ClsAcc 23-64%)
+        wb_effects = ["cool_wb"] * 8 + ["warm_wb"] * 8 + ["dim_dark"] * 5 + ["split_shadow"] * 3
+        rng.shuffle(wb_effects)
+        for i, eff in enumerate(wb_effects, start=1):
+            bg_m = ["paper", "paper", "real_wood", "paper_border"][i % 4]
+            canvas, smask, objs = synthesize_mixed_pile(
+                primary_bank=d3_train_bank,
+                replay_bank=d2_replay_bank,
+                primary_prob=0.78,
+                paper_patches=d3_train_paper,
+                wood_strip=real_wood_strip,
+                target_classes=CLASSES,
+                num_beans=rng.randint(16, 24),
+                bg_mode=bg_m,
+                rng=rng,
+            )
+            canvas, jq = apply_v2_domain_effect(canvas, eff, rng)
+            fname = f"v2_tr_wb_{i:02d}_{eff}.jpg"
+            cv2.imwrite(str(OUT_DS_DIR / "images" / "train" / fname), canvas, [int(cv2.IMWRITE_JPEG_QUALITY), jq])
+            (OUT_DS_DIR / "labels" / "train" / f"{Path(fname).stem}.txt").write_text(
+                "\n".join(objects_to_yolo_seg_lines(objs, 960, 960)) + "\n", encoding="utf-8"
+            )
+            train_count += 1
+            for o in objs:
+                train_cls_hist[o["class"]] += 1
+            if len(v2_preview_tiles) < 2 and eff in ("cool_wb", "warm_wb", "dim_dark"):
+                v2_preview_tiles.append(render_preview_tile(canvas, smask, objs, f"V2 SliceA: {eff} ({len(objs)})"))
+
+        # Slice B (+14): ISO Noise & Low-JPEG/Blur Piles (แก้ ISO noise ลั่นเป็น husk + FP=4)
+        noise_effects = ["iso_noise"] * 6 + ["cool_noise"] * 2 + ["low_jpeg_blur"] * 6
+        for i, eff in enumerate(noise_effects, start=1):
+            bg_m = ["paper", "real_wood", "paper_both_borders", "dark_slate"][i % 4]
+            canvas, smask, objs = synthesize_mixed_pile(
+                primary_bank=d3_train_bank,
+                replay_bank=d2_replay_bank,
+                primary_prob=0.76,
+                paper_patches=d3_train_paper,
+                wood_strip=real_wood_strip,
+                target_classes=CLASSES,
+                num_beans=rng.randint(14, 22),
+                bg_mode=bg_m,
+                rng=rng,
+            )
+            canvas, jq = apply_v2_domain_effect(canvas, eff, rng)
+            fname = f"v2_tr_cam_{i:02d}_{eff}.jpg"
+            cv2.imwrite(str(OUT_DS_DIR / "images" / "train" / fname), canvas, [int(cv2.IMWRITE_JPEG_QUALITY), jq])
+            (OUT_DS_DIR / "labels" / "train" / f"{Path(fname).stem}.txt").write_text(
+                "\n".join(objects_to_yolo_seg_lines(objs, 960, 960)) + "\n", encoding="utf-8"
+            )
+            train_count += 1
+            for o in objs:
+                train_cls_hist[o["class"]] += 1
+            if len(v2_preview_tiles) < 4 and eff in ("iso_noise", "low_jpeg_blur"):
+                v2_preview_tiles.append(render_preview_tile(canvas, smask, objs, f"V2 SliceB: {eff} ({len(objs)})"))
+
+        # Slice C (+12): Hard Negative Empty Backgrounds (0 เม็ด — ฆ่า Ghost FP มุมขอบโต๊ะไม้ + Noise!)
+        neg_kinds = (
+            ["paper_double_border_crease"] * 4
+            + ["paper_border_noisy"] * 4
+            + ["dark_slate_empty"] * 2
+            + ["dark_wood_empty"] * 2
+        )
+        for i, nk in enumerate(neg_kinds, start=1):
+            canvas = make_empty_hard_negative(nk, d3_train_paper, real_wood_strip, rng, 960, 960)
+            fname = f"v2_tr_empty_{i:02d}_{nk}.jpg"
+            cv2.imwrite(str(OUT_DS_DIR / "images" / "train" / fname), canvas, [int(cv2.IMWRITE_JPEG_QUALITY), 84])
+            # ไฟล์ label ว่างเปล่าสำหรับ Hard Negative (YOLO background-only image)
+            (OUT_DS_DIR / "labels" / "train" / f"{Path(fname).stem}.txt").write_text("", encoding="utf-8")
+            train_count += 1
+            if len(v2_preview_tiles) < 5 and nk == "paper_border_noisy":
+                v2_preview_tiles.append(render_preview_tile(canvas, np.zeros((960, 960), dtype=np.uint16), [], f"V2 SliceC: Empty HardNeg (0)"))
+
+        # Slice D (+12): Extra Fine-Grained Contrast Piles (ดัน immature F1=70% และ shell<->broken)
+        v2_hard_grps = [["immature", "good", "parchment"]] * 6 + [["shell", "broken", "good"]] * 6
+        v2_hard_effs = ["none", "cool_wb", "warm_wb", "dim_dark", "iso_noise", "none"]
+        for i, grp in enumerate(v2_hard_grps, start=1):
+            bg_m = ["paper", "real_wood", "dark_slate", "paper_border"][i % 4]
+            canvas, smask, objs = synthesize_mixed_pile(
+                primary_bank=d3_train_bank,
+                replay_bank=d2_replay_bank,
+                primary_prob=0.82,
+                paper_patches=d3_train_paper,
+                wood_strip=real_wood_strip,
+                target_classes=grp,
+                num_beans=rng.randint(16, 24),
+                bg_mode=bg_m,
+                rng=rng,
+            )
+            eff = v2_hard_effs[(i - 1) % len(v2_hard_effs)]
+            jq = 84
+            if eff != "none":
+                canvas, jq = apply_v2_domain_effect(canvas, eff, rng)
+            fname = f"v2_tr_cls_{i:02d}_{eff}.jpg"
+            cv2.imwrite(str(OUT_DS_DIR / "images" / "train" / fname), canvas, [int(cv2.IMWRITE_JPEG_QUALITY), jq])
+            (OUT_DS_DIR / "labels" / "train" / f"{Path(fname).stem}.txt").write_text(
+                "\n".join(objects_to_yolo_seg_lines(objs, 960, 960)) + "\n", encoding="utf-8"
+            )
+            train_count += 1
+            for o in objs:
+                train_cls_hist[o["class"]] += 1
+            if len(v2_preview_tiles) < 6 and eff != "none":
+                v2_preview_tiles.append(render_preview_tile(canvas, smask, objs, f"V2 SliceD: {'+'.join(c[:3] for c in grp)} ({eff})"))
+
+        # Slice E (+10): Multi-Scale Far/Small-Bean & Close-Up Piles (แก้ภาพไกล/ขอบ 2 ด้าน/จ่อใกล้)
+        for i in range(1, 11):
+            is_small = i <= 6
+            bg_m = "paper_both_borders" if (is_small and i % 2 == 0) else ("real_wood" if i % 3 == 0 else "paper")
+            s_rng = (0.38, 0.56) if is_small else (1.22, 1.48)
+            n_b = rng.randint(18, 26) if is_small else rng.randint(5, 8)
+            canvas, smask, objs = synthesize_mixed_pile(
+                primary_bank=d3_train_bank,
+                replay_bank=d2_replay_bank,
+                primary_prob=0.80,
+                paper_patches=d3_train_paper,
+                wood_strip=real_wood_strip,
+                target_classes=CLASSES,
+                num_beans=n_b,
+                bg_mode=bg_m,
+                rng=rng,
+                scale_range=s_rng,
+            )
+            tag = "small" if is_small else "large"
+            fname = f"v2_tr_scale_{i:02d}_{tag}.jpg"
+            cv2.imwrite(str(OUT_DS_DIR / "images" / "train" / fname), canvas, [int(cv2.IMWRITE_JPEG_QUALITY), 84])
+            (OUT_DS_DIR / "labels" / "train" / f"{Path(fname).stem}.txt").write_text(
+                "\n".join(objects_to_yolo_seg_lines(objs, 960, 960)) + "\n", encoding="utf-8"
+            )
+            train_count += 1
+            for o in objs:
+                train_cls_hist[o["class"]] += 1
+            if len(v2_preview_tiles) < 8 and i in (2, 8):
+                v2_preview_tiles.append(render_preview_tile(canvas, smask, objs, f"V2 SliceE: {tag} ({len(objs)})"))
+
     # 4. สร้าง Validation Mixed Touching Piles (unseen layouts/rotations/overlaps)
     val_bgs = (
         ["paper"] * 6 + ["real_wood"] * 4 + ["synth_wood"] * 2 + ["paper_border"] * 2
@@ -772,6 +1007,48 @@ def main() -> None:
         if len(pile_preview_tiles) < 8:
             pile_preview_tiles.append(render_preview_tile(canvas, smask, objs, f"VAL Mixed #{i} ({bg_m}, {len(objs)})"))
 
+    # 4B: [V2 HARDENED ONLY] เพิ่ม 6 Hardened Val Images (WB / Dim / ISO Noise / Small / Empty) ให้ best.pt เลือกจุดที่เก่งทั้งภาพสะอาดและสภาพโหด!
+    if v2_mode:
+        val_hard_specs = [
+            ("cool_wb", "paper", CLASSES, 16, (0.76, 1.02)),
+            ("warm_wb", "real_wood", ["immature", "good", "parchment"], 16, (0.76, 1.02)),
+            ("dim_dark", "paper", CLASSES, 16, (0.76, 1.02)),
+            ("iso_noise", "paper_both_borders", CLASSES, 15, (0.74, 0.98)),
+            ("none", "paper_both_borders", CLASSES, 20, (0.42, 0.56)),
+            ("empty", "paper_double_border_crease", CLASSES, 0, (0.8, 1.0)),
+        ]
+        for j, (eff, bg_m, t_cls, n_b, s_rng) in enumerate(val_hard_specs, start=1):
+            if eff == "empty":
+                canvas = make_empty_hard_negative(bg_m, d3_val_paper, real_wood_strip, val_rng, 960, 960)
+                smask = np.zeros((960, 960), dtype=np.uint16)
+                objs = []
+                jq = 86
+            else:
+                canvas, smask, objs = synthesize_mixed_pile(
+                    primary_bank=d3_val_bank,
+                    replay_bank=None,
+                    primary_prob=1.0,
+                    paper_patches=d3_val_paper,
+                    wood_strip=real_wood_strip,
+                    target_classes=t_cls,
+                    num_beans=n_b,
+                    bg_mode=bg_m,
+                    rng=val_rng,
+                    scale_range=s_rng,
+                )
+                jq = 86
+                if eff != "none":
+                    canvas, jq = apply_v2_domain_effect(canvas, eff, val_rng)
+            fname = f"val_v2_hard_{j:02d}_{eff}.jpg"
+            cv2.imwrite(str(OUT_DS_DIR / "images" / "val" / fname), canvas, [int(cv2.IMWRITE_JPEG_QUALITY), jq])
+            lbl_txt = "\n".join(objects_to_yolo_seg_lines(objs, 960, 960)) + ("\n" if objs else "")
+            (OUT_DS_DIR / "labels" / "val" / f"{Path(fname).stem}.txt").write_text(lbl_txt, encoding="utf-8")
+            cv2.imwrite(str(OUT_DS_DIR / "val_gt_day3_format" / "seg_mask" / f"{Path(fname).stem}.png"), smask.astype(np.uint16))
+            val_gt_entries.append({"image_name": fname, "subset": "v2_hardened_val", "objects": objs})
+            val_count += 1
+            for o in objs:
+                val_cls_hist[o["class"]] += 1
+
     # บันทึก Ground Truth ของชุด Val, dataset_mode.json และ beans_seg_day3.yaml
     (OUT_DS_DIR / "val_gt_day3_format" / "ground_truth.json").write_text(
         json.dumps(val_gt_entries, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -805,6 +1082,8 @@ def main() -> None:
         cv2.imwrite(str(QUALITY_DIR / "01_day3_real_split_preview.jpg"), np.vstack([np.hstack(preview_real_tiles[:4]), np.hstack(preview_real_tiles[4:8])]))
     if len(pile_preview_tiles) == 8:
         cv2.imwrite(str(QUALITY_DIR / "02_day3_mixed_piles_preview.jpg"), np.vstack([np.hstack(pile_preview_tiles[:4]), np.hstack(pile_preview_tiles[4:8])]))
+    if len(v2_preview_tiles) >= 8:
+        cv2.imwrite(str(QUALITY_DIR / "03_day3_v2_hardened_preview.jpg"), np.vstack([np.hstack(v2_preview_tiles[:4]), np.hstack(v2_preview_tiles[4:8])]))
 
     if colab_zip_path.exists():
         colab_zip_path.unlink()
