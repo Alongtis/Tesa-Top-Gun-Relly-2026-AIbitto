@@ -1,1 +1,1 @@
-{"image": "Mixed_grid4.jpg", "latency_ms": 190, "counts": {"good": 3, "shell": 0, "black": 2, "husk": 0, "broken": 3, "parchment": 1, "immature": 0}, "defect_ratio": 0.6667}
+{"image": "Mixed_grid4.jpg", "latency_ms": 594, "counts": {"good": 3, "shell": 0, "black": 2, "husk": 0, "broken": 3, "parchment": 1, "immature": 0}, "defect_ratio": 0.6667}

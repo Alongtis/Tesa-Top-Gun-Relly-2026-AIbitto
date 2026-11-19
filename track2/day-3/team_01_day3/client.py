@@ -55,7 +55,8 @@ from infer import (  # noqa: E402
 DEFAULT_MQTT_HOST = "tesa-score.c333m.site"
 DEFAULT_MQTT_PORT = 443
 DEFAULT_MQTT_WS_PATH = "/mqtt/"
-DEFAULT_TEAM_ID = "TEAM_01"
+DEFAULT_TEAM_ID = "TGR-01"
+DEFAULT_MQTT_CLIENT_ID = "TGR-01:device-1"
 DEFAULT_TRACK = "EdgeAI"
 DEFAULT_EVENT = "1"
 
@@ -196,6 +197,7 @@ class CompetitionMQTTClient:
         ws_path: str,
         team_id: str,
         mqtt_key: str,
+        client_id: str = DEFAULT_MQTT_CLIENT_ID,
         track: str = DEFAULT_TRACK,
         event: str = DEFAULT_EVENT,
     ) -> None:
@@ -209,6 +211,7 @@ class CompetitionMQTTClient:
         self.ws_path = ws_path
         self.team_id = team_id
         self.mqtt_key = mqtt_key
+        self.client_id = client_id
         self.topic = f"/event/{mqtt_key}/{track}/{event}"
 
         self._connected_evt = threading.Event()
@@ -216,6 +219,7 @@ class CompetitionMQTTClient:
 
         self.client = mqtt.Client(
             mqtt.CallbackAPIVersion.VERSION2,
+            client_id=client_id,
             transport="websockets",
             protocol=mqtt.MQTTv5,
         )
@@ -246,7 +250,7 @@ class CompetitionMQTTClient:
             self.close()
             raise RuntimeError(
                 f"MQTT Broker ปฏิเสธการเชื่อมต่อ (reason_code={rc}) — "
-                f"ตรวจสอบ TEAM_ID ({self.team_id}) และ MQTT_KEY (ต้องกด Generate จากหน้าเว็บ)"
+                f"ตรวจสอบ TEAM_ID ({self.team_id}), CLIENT_ID ({self.client_id}) และ MQTT_KEY (ต้องกด Generate จากหน้าเว็บ)"
             )
 
     def publish_payload(self, payload_dict: Dict[str, Any], timeout: float = 8.0) -> str:
@@ -347,8 +351,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out", type=Path, default=BASE_DIR / "outputs", help="โฟลเดอร์ outputs/ สำหรับบันทึกผลลัพธ์")
     parser.add_argument("--http-url", type=str, default=None, help="URL ของ HTTP Evaluation Server (หรือ DAY3_HTTP_URL)")
     parser.add_argument("--http-token", type=str, default=None, help="Password ล็อกอินเว็บไซต์สำหรับ HTTP Bearer Token (หรือ DAY3_HTTP_TOKEN)")
-    parser.add_argument("--team-id", type=str, default=None, help="รหัสทีม เช่น TEAM_01 สำหรับ MQTT Username (หรือ DAY3_TEAM_ID)")
+    parser.add_argument("--team-id", type=str, default=None, help=f"รหัสทีมสำหรับ MQTT Username (default: {DEFAULT_TEAM_ID}, หรือ DAY3_TEAM_ID)")
     parser.add_argument("--mqtt-key", type=str, default=None, help="MQTT Key ที่ Generate จากหน้าเว็บ (หรือ DAY3_MQTT_KEY)")
+    parser.add_argument("--mqtt-client-id", type=str, default=None, help=f"MQTT Client ID (default: {DEFAULT_MQTT_CLIENT_ID}, หรือ DAY3_MQTT_CLIENT_ID)")
     parser.add_argument("--mqtt-host", type=str, default=None, help=f"MQTT Broker Host (default: {DEFAULT_MQTT_HOST})")
     parser.add_argument("--mqtt-port", type=int, default=None, help=f"MQTT Broker Port (default: {DEFAULT_MQTT_PORT})")
     parser.add_argument("--mqtt-ws-path", type=str, default=None, help=f"MQTT WebSocket Path (default: {DEFAULT_MQTT_WS_PATH})")
@@ -387,6 +392,7 @@ def main() -> None:
     http_token = (args.http_token or os.environ.get("DAY3_HTTP_TOKEN") or "").strip()
     team_id = (args.team_id or os.environ.get("DAY3_TEAM_ID") or DEFAULT_TEAM_ID).strip()
     mqtt_key = (args.mqtt_key or os.environ.get("DAY3_MQTT_KEY") or "").strip()
+    mqtt_client_id = (args.mqtt_client_id or os.environ.get("DAY3_MQTT_CLIENT_ID") or DEFAULT_MQTT_CLIENT_ID).strip()
     mqtt_host = (args.mqtt_host or os.environ.get("DAY3_MQTT_HOST") or DEFAULT_MQTT_HOST).strip()
     mqtt_port = args.mqtt_port if args.mqtt_port is not None else int(os.environ.get("DAY3_MQTT_PORT", str(DEFAULT_MQTT_PORT)))
     mqtt_ws_path = (args.mqtt_ws_path or os.environ.get("DAY3_MQTT_WS_PATH") or DEFAULT_MQTT_WS_PATH).strip()
@@ -455,12 +461,13 @@ def main() -> None:
                 ws_path=mqtt_ws_path,
                 team_id=team_id,
                 mqtt_key=mqtt_key,
+                client_id=mqtt_client_id,
                 track=track,
                 event=event,
             )
             mqtt_client.connect()
             mqtt_scheme = "wss" if mqtt_port == 443 else "ws"
-            print(f"[MQTT] Connected {mqtt_scheme}://{mqtt_host}:{mqtt_port}{mqtt_ws_path} | topic={mqtt_client.topic}")
+            print(f"[MQTT] Connected {mqtt_scheme}://{mqtt_host}:{mqtt_port}{mqtt_ws_path} | client_id={mqtt_client_id} | topic={mqtt_client.topic}")
 
         # โหลด predictions.json เดิมไว้ (ถ้าไม่ได้สั่ง --clean-out)
         all_predictions_by_name: Dict[str, Dict[str, Any]] = {}
