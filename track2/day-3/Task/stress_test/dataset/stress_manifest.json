@@ -1,0 +1,422 @@
+[
+  {
+    "image_name": "01_dense_01_paper.jpg",
+    "category": "01_dense_touching",
+    "sub_case": "dense_27_paper",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 27,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "01_dense_02_real_wood.jpg",
+    "category": "01_dense_touching",
+    "sub_case": "dense_28_real_wood",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 28,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "01_dense_03_paper.jpg",
+    "category": "01_dense_touching",
+    "sub_case": "dense_25_paper",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 25,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "01_dense_04_real_wood.jpg",
+    "category": "01_dense_touching",
+    "sub_case": "dense_23_real_wood",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 23,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "01_dense_05_paper.jpg",
+    "category": "01_dense_touching",
+    "sub_case": "dense_21_paper",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 21,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "01_dense_06_real_wood.jpg",
+    "category": "01_dense_touching",
+    "sub_case": "dense_23_real_wood",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 23,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "02_light_01_dim_underexposed.jpg",
+    "category": "02_harsh_lighting",
+    "sub_case": "dim_underexposed",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 15,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "02_light_02_glare_overexposed.jpg",
+    "category": "02_harsh_lighting",
+    "sub_case": "glare_overexposed",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 13,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "02_light_03_warm_tungsten.jpg",
+    "category": "02_harsh_lighting",
+    "sub_case": "warm_tungsten",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 11,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "02_light_04_cool_fluorescent.jpg",
+    "category": "02_harsh_lighting",
+    "sub_case": "cool_fluorescent",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 15,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "02_light_05_split_shadow.jpg",
+    "category": "02_harsh_lighting",
+    "sub_case": "split_shadow",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 12,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "02_light_06_vignette_high_contrast.jpg",
+    "category": "02_harsh_lighting",
+    "sub_case": "vignette_high_contrast",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 15,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "03_bg_01_dark_slate.jpg",
+    "category": "03_hostile_bg",
+    "sub_case": "dark_slate",
+    "difficulty": "BRUTAL",
+    "width": 960,
+    "height": 960,
+    "num_beans": 14,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "03_bg_02_brown_kraft.jpg",
+    "category": "03_hostile_bg",
+    "sub_case": "brown_kraft",
+    "difficulty": "BRUTAL",
+    "width": 960,
+    "height": 960,
+    "num_beans": 10,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "03_bg_03_metal_tray.jpg",
+    "category": "03_hostile_bg",
+    "sub_case": "metal_tray",
+    "difficulty": "BRUTAL",
+    "width": 960,
+    "height": 960,
+    "num_beans": 10,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "03_bg_04_lined_notebook.jpg",
+    "category": "03_hostile_bg",
+    "sub_case": "lined_notebook",
+    "difficulty": "BRUTAL",
+    "width": 960,
+    "height": 960,
+    "num_beans": 11,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "03_bg_05_woven_cloth.jpg",
+    "category": "03_hostile_bg",
+    "sub_case": "woven_cloth",
+    "difficulty": "BRUTAL",
+    "width": 960,
+    "height": 960,
+    "num_beans": 13,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "03_bg_06_double_wood_border.jpg",
+    "category": "03_hostile_bg",
+    "sub_case": "double_wood_border",
+    "difficulty": "BRUTAL",
+    "width": 960,
+    "height": 960,
+    "num_beans": 12,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "04_hires_01_bottom_edge_beans.jpg",
+    "category": "04_highres_edge_roi",
+    "sub_case": "bottom_edge_beans",
+    "difficulty": "BRUTAL",
+    "width": 3072,
+    "height": 4096,
+    "num_beans": 11,
+    "jpeg_quality": 88
+  },
+  {
+    "image_name": "04_hires_02_top_left_corner.jpg",
+    "category": "04_highres_edge_roi",
+    "sub_case": "top_left_corner",
+    "difficulty": "BRUTAL",
+    "width": 3072,
+    "height": 4096,
+    "num_beans": 12,
+    "jpeg_quality": 88
+  },
+  {
+    "image_name": "04_hires_03_landscape_wide_spread.jpg",
+    "category": "04_highres_edge_roi",
+    "sub_case": "landscape_wide_spread",
+    "difficulty": "BRUTAL",
+    "width": 4096,
+    "height": 3072,
+    "num_beans": 14,
+    "jpeg_quality": 88
+  },
+  {
+    "image_name": "04_hires_04_highres_dark_wood.jpg",
+    "category": "04_highres_edge_roi",
+    "sub_case": "highres_dark_wood",
+    "difficulty": "BRUTAL",
+    "width": 3072,
+    "height": 4096,
+    "num_beans": 12,
+    "jpeg_quality": 88
+  },
+  {
+    "image_name": "04_hires_05_highres_far_with_stray.jpg",
+    "category": "04_highres_edge_roi",
+    "sub_case": "highres_far_with_stray",
+    "difficulty": "BRUTAL",
+    "width": 3072,
+    "height": 4096,
+    "num_beans": 12,
+    "jpeg_quality": 88
+  },
+  {
+    "image_name": "04_hires_06_highres_both_borders.jpg",
+    "category": "04_highres_edge_roi",
+    "sub_case": "highres_both_borders",
+    "difficulty": "BRUTAL",
+    "width": 3072,
+    "height": 4096,
+    "num_beans": 12,
+    "jpeg_quality": 88
+  },
+  {
+    "image_name": "05_cam_01_defocus_blur.jpg",
+    "category": "05_camera_artifacts",
+    "sub_case": "defocus_blur",
+    "difficulty": "HARD",
+    "width": 1024,
+    "height": 1024,
+    "num_beans": 13,
+    "jpeg_quality": 88
+  },
+  {
+    "image_name": "05_cam_02_motion_blur.jpg",
+    "category": "05_camera_artifacts",
+    "sub_case": "motion_blur",
+    "difficulty": "HARD",
+    "width": 1024,
+    "height": 1024,
+    "num_beans": 10,
+    "jpeg_quality": 85
+  },
+  {
+    "image_name": "05_cam_03_heavy_iso_noise.jpg",
+    "category": "05_camera_artifacts",
+    "sub_case": "heavy_iso_noise",
+    "difficulty": "HARD",
+    "width": 1024,
+    "height": 1024,
+    "num_beans": 12,
+    "jpeg_quality": 80
+  },
+  {
+    "image_name": "05_cam_04_low_jpeg_q25.jpg",
+    "category": "05_camera_artifacts",
+    "sub_case": "low_jpeg_q25",
+    "difficulty": "HARD",
+    "width": 1024,
+    "height": 1024,
+    "num_beans": 14,
+    "jpeg_quality": 24
+  },
+  {
+    "image_name": "05_cam_05_perspective_tilt_1.jpg",
+    "category": "05_camera_artifacts",
+    "sub_case": "perspective_tilt_1",
+    "difficulty": "HARD",
+    "width": 1024,
+    "height": 1024,
+    "num_beans": 14,
+    "jpeg_quality": 82
+  },
+  {
+    "image_name": "05_cam_06_perspective_tilt_2.jpg",
+    "category": "05_camera_artifacts",
+    "sub_case": "perspective_tilt_2",
+    "difficulty": "HARD",
+    "width": 1024,
+    "height": 1024,
+    "num_beans": 13,
+    "jpeg_quality": 38
+  },
+  {
+    "image_name": "06_scale_01_tiny_far_1.jpg",
+    "category": "06_scale_extremes",
+    "sub_case": "tiny_far_1",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 24,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "06_scale_02_tiny_far_2.jpg",
+    "category": "06_scale_extremes",
+    "sub_case": "tiny_far_2",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 27,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "06_scale_03_tiny_far_3.jpg",
+    "category": "06_scale_extremes",
+    "sub_case": "tiny_far_3",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 23,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "06_scale_04_huge_closeup_1.jpg",
+    "category": "06_scale_extremes",
+    "sub_case": "huge_closeup_1",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 4,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "06_scale_05_huge_closeup_2.jpg",
+    "category": "06_scale_extremes",
+    "sub_case": "huge_closeup_2",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 4,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "06_scale_06_huge_closeup_3.jpg",
+    "category": "06_scale_extremes",
+    "sub_case": "huge_closeup_3",
+    "difficulty": "HARD",
+    "width": 960,
+    "height": 960,
+    "num_beans": 5,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "07_trap_01_trap_good_imm_parch.jpg",
+    "category": "07_confusing_and_empty",
+    "sub_case": "trap_good_imm_parch",
+    "difficulty": "BRUTAL",
+    "width": 960,
+    "height": 960,
+    "num_beans": 14,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "07_trap_02_trap_broken_shell_good.jpg",
+    "category": "07_confusing_and_empty",
+    "sub_case": "trap_broken_shell_good",
+    "difficulty": "BRUTAL",
+    "width": 960,
+    "height": 960,
+    "num_beans": 14,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "07_trap_03_trap_black_husk.jpg",
+    "category": "07_confusing_and_empty",
+    "sub_case": "trap_black_husk",
+    "difficulty": "BRUTAL",
+    "width": 960,
+    "height": 960,
+    "num_beans": 14,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "07_trap_04_sparse_single_bean.jpg",
+    "category": "07_confusing_and_empty",
+    "sub_case": "sparse_single_bean",
+    "difficulty": "BRUTAL",
+    "width": 960,
+    "height": 960,
+    "num_beans": 1,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "07_trap_05_empty_paper_crease_border.jpg",
+    "category": "07_confusing_and_empty",
+    "sub_case": "empty_paper_crease_border",
+    "difficulty": "BRUTAL",
+    "width": 960,
+    "height": 960,
+    "num_beans": 0,
+    "jpeg_quality": 90
+  },
+  {
+    "image_name": "07_trap_06_empty_dark_wood.jpg",
+    "category": "07_confusing_and_empty",
+    "sub_case": "empty_dark_wood",
+    "difficulty": "BRUTAL",
+    "width": 960,
+    "height": 960,
+    "num_beans": 0,
+    "jpeg_quality": 90
+  }
+]

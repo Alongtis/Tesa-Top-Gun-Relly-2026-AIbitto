@@ -1,0 +1,32 @@
+{
+  "mode": "full",
+  "train_images": 153,
+  "val_images": 17,
+  "day3_train_real_beans": {
+    "good": 27,
+    "shell": 17,
+    "black": 17,
+    "husk": 18,
+    "broken": 16,
+    "parchment": 17,
+    "immature": 12
+  },
+  "train_class_instances": {
+    "black": 359,
+    "broken": 374,
+    "good": 435,
+    "husk": 304,
+    "immature": 339,
+    "parchment": 356,
+    "shell": 346
+  },
+  "val_class_instances": {
+    "black": 34,
+    "broken": 35,
+    "good": 54,
+    "husk": 35,
+    "immature": 49,
+    "parchment": 45,
+    "shell": 35
+  }
+}

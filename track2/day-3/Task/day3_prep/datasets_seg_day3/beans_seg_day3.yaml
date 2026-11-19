@@ -1,0 +1,11 @@
+path: D:/Coding/TESA_2026/Tesa-Top-Gun-Relly-2026-AIbitto/track2/day-3/Task/day3_prep/datasets_seg_day3
+train: images/train
+val: images/val
+names:
+  0: good
+  1: shell
+  2: black
+  3: husk
+  4: broken
+  5: parchment
+  6: immature
