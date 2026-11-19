@@ -314,27 +314,34 @@ def save_round_outputs(
     (out_dir / "predictions.json").write_text(format_predictions_json(ordered_list), encoding="utf-8")
 
 
-def build_submission_zip(team_dir: Path, zip_path: Path) -> Path:
+def build_submission_zip(team_dir: Path, zip_path: Path, out_dir: Optional[Path] = None) -> Path:
     """แพ็กโฟลเดอร์ team_01_day3/ เป็น team_01_Day3.zip ตามโครงสร้างสไลด์หน้า 8–9 (ไม่รวม .env และ __pycache__)"""
     include_files = ["README.md", "requirements.txt", "train.py", "infer.py", "client.py"]
-    include_dirs = ["weights", "outputs"]
     root_name = team_dir.name
+    actual_out_dir = out_dir if out_dir is not None else (team_dir / "outputs")
 
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
         for fname in include_files:
             fp = team_dir / fname
             if fp.is_file():
                 zf.write(fp, Path(root_name) / fname)
-        for dname in include_dirs:
-            dp = team_dir / dname
-            if not dp.exists():
-                continue
-            for f in sorted(dp.rglob("*")):
+
+        weights_dir = team_dir / "weights"
+        if weights_dir.exists():
+            for f in sorted(weights_dir.rglob("*")):
                 if not f.is_file():
                     continue
                 if "__pycache__" in f.parts or f.name in (".gitkeep", ".env"):
                     continue
-                zf.write(f, Path(root_name) / f.relative_to(team_dir))
+                zf.write(f, Path(root_name) / "weights" / f.relative_to(weights_dir))
+
+        if actual_out_dir.exists():
+            for f in sorted(actual_out_dir.rglob("*")):
+                if not f.is_file():
+                    continue
+                if "__pycache__" in f.parts or f.name in (".gitkeep", ".env"):
+                    continue
+                zf.write(f, Path(root_name) / "outputs" / f.relative_to(actual_out_dir))
     return zip_path
 
 
@@ -603,7 +610,7 @@ def main() -> None:
             print(f"[FINAL STATS] {json.dumps(end_stats, ensure_ascii=False)}")
 
         if args.build_zip is not None:
-            zp = build_submission_zip(BASE_DIR, args.build_zip)
+            zp = build_submission_zip(BASE_DIR, args.build_zip, out_dir=args.out)
             print(f"[ZIP] Created submission archive -> {zp} ({zp.stat().st_size / (1024*1024):.2f} MB)")
         print("=" * 72)
 

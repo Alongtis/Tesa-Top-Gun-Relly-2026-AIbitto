@@ -1,8 +1,10 @@
+# Lightweight CPU-only runtime dependencies for Raspberry Pi 5 / Linux / Windows
+# (No PyTorch / Ultralytics / NVIDIA CUDA — infer.py runs Native NCNN directly with ONNX Runtime fallback)
+# Note: train.py is trained on Google Colab GPU where ultralytics/torch are installed separately.
 opencv-python-headless>=4.8.0
 numpy>=1.24.0
 pillow>=10.0.0
-onnxruntime>=1.18.0
-ultralytics>=8.4.1
 ncnn>=1.0.20240410
+onnxruntime>=1.18.0
 requests>=2.31.0
 paho-mqtt>=2.0.0,<3.0.0

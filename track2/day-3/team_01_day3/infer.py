@@ -204,22 +204,25 @@ def letterbox_image(img_bgr: np.ndarray, new_shape: int = 640) -> Tuple[np.ndarr
     return padded, (nw / float(w), nh / float(h)), (left, top)
 
 
-def run_onnx_yolo_seg(
-    sess: Any,
-    img_bgr: np.ndarray,
+def _decode_yolo_seg_tensors(
+    pred: np.ndarray,
+    proto: np.ndarray,
+    orig_hw: Tuple[int, int],
+    ratio_xy: Tuple[float, float],
+    pad_xy: Tuple[int, int],
     img_size: int = 640,
     conf_thresh: float = 0.28,
     iou_thresh: float = 0.60,
 ) -> List[Dict[str, Any]]:
-    oh, ow = img_bgr.shape[:2]
-    padded, (rx, ry), (pad_x, pad_y) = letterbox_image(img_bgr, img_size)
-    rgb = cv2.cvtColor(padded, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
-    blob = np.ascontiguousarray(rgb.transpose(2, 0, 1)[None, :, :, :])
+    """ถอดรหัสผลลัพธ์ดิบ (pred, proto) จากทั้ง Native NCNN และ ONNX Runtime ด้วยสูตร Subpixel-Aligned เดียวกัน"""
+    oh, ow = orig_hw
+    rx, ry = ratio_xy
+    pad_x, pad_y = pad_xy
 
-    inp_name = sess.get_inputs()[0].name
-    outputs = sess.run(None, {inp_name: blob})
-    pred = outputs[0][0]
-    proto = outputs[1][0]
+    if pred.ndim == 3:
+        pred = pred[0]
+    if proto.ndim == 4:
+        proto = proto[0]
 
     nc = len(CLASSES)
     if pred.shape[0] == 4 + nc + 32:
@@ -300,6 +303,77 @@ def run_onnx_yolo_seg(
     return detections
 
 
+def run_ncnn_yolo_seg(
+    engine: Dict[str, Any],
+    img_bgr: np.ndarray,
+    img_size: int = 640,
+    conf_thresh: float = 0.28,
+    iou_thresh: float = 0.60,
+) -> List[Dict[str, Any]]:
+    """รันโมเดล NCNN โดยตรงผ่าน ncnn.Net() ไม่ต้องใช้ PyTorch / Ultralytics / CUDA"""
+    ncnn_mod = engine["ncnn_mod"]
+    net = engine["net"]
+    oh, ow = img_bgr.shape[:2]
+    padded, (rx, ry), (pad_x, pad_y) = letterbox_image(img_bgr, img_size)
+    rgb = cv2.cvtColor(padded, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+    blob_chw = np.ascontiguousarray(rgb.transpose(2, 0, 1))
+
+    ex = net.create_extractor()
+    ex.input(engine["in_name"], ncnn_mod.Mat(blob_chw).clone())
+    _, out0 = ex.extract(engine["out0_name"])
+    _, out1 = ex.extract(engine["out1_name"])
+    pred = np.array(out0, dtype=np.float32)
+    proto = np.array(out1, dtype=np.float32)
+
+    return _decode_yolo_seg_tensors(
+        pred,
+        proto,
+        orig_hw=(oh, ow),
+        ratio_xy=(rx, ry),
+        pad_xy=(pad_x, pad_y),
+        img_size=img_size,
+        conf_thresh=conf_thresh,
+        iou_thresh=iou_thresh,
+    )
+
+
+def run_onnx_yolo_seg(
+    sess: Any,
+    img_bgr: np.ndarray,
+    img_size: int = 640,
+    conf_thresh: float = 0.28,
+    iou_thresh: float = 0.60,
+) -> List[Dict[str, Any]]:
+    oh, ow = img_bgr.shape[:2]
+    padded, (rx, ry), (pad_x, pad_y) = letterbox_image(img_bgr, img_size)
+    rgb = cv2.cvtColor(padded, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+    blob = np.ascontiguousarray(rgb.transpose(2, 0, 1)[None, :, :, :])
+
+    inp_name = sess.get_inputs()[0].name
+    outputs = sess.run(None, {inp_name: blob})
+    return _decode_yolo_seg_tensors(
+        outputs[0][0],
+        outputs[1][0],
+        orig_hw=(oh, ow),
+        ratio_xy=(rx, ry),
+        pad_xy=(pad_x, pad_y),
+        img_size=img_size,
+        conf_thresh=conf_thresh,
+        iou_thresh=iou_thresh,
+    )
+
+
+def _find_ncnn_model_dir(w_path: Path) -> Path | None:
+    if not w_path.is_dir():
+        return None
+    if (w_path / "model.ncnn.param").is_file() and (w_path / "model.ncnn.bin").is_file():
+        return w_path
+    for d in sorted(w_path.iterdir()):
+        if d.is_dir() and (d / "model.ncnn.param").is_file() and (d / "model.ncnn.bin").is_file():
+            return d
+    return None
+
+
 def load_model(weights_path: str | Path) -> Dict[str, Any]:
     configure_cpu_runtime()
     w_path = Path(weights_path)
@@ -308,7 +382,7 @@ def load_model(weights_path: str | Path) -> Dict[str, Any]:
 
     search_dir = w_path if w_path.is_dir() else w_path.parent
     img_size = 640
-    meta_files = list(search_dir.glob("*.npz"))
+    meta_files = list(search_dir.glob("*.npz")) or list(search_dir.parent.glob("*.npz"))
     if meta_files:
         try:
             with np.load(meta_files[0], allow_pickle=False) as meta:
@@ -317,16 +391,50 @@ def load_model(weights_path: str | Path) -> Dict[str, Any]:
         except Exception:
             pass
 
-    ncnn_dirs = [d for d in search_dir.iterdir() if d.is_dir() and "ncnn" in d.name.lower()] if w_path.is_dir() else []
-    if ncnn_dirs:
+    # 1. ลำดับแรก: Native NCNN (เร็วที่สุดบน Raspberry Pi 5 และไม่ต้องใช้ PyTorch / Ultralytics / CUDA!)
+    ncnn_dir = _find_ncnn_model_dir(w_path)
+    if ncnn_dir is not None:
         try:
-            from ultralytics import YOLO
-            model = YOLO(str(ncnn_dirs[0]), task="segment")
-            model.predict(np.zeros((img_size, img_size, 3), dtype=np.uint8), imgsz=img_size, verbose=False)
-            return {"backend": "ultralytics", "engine_label": f"NCNN ({ncnn_dirs[0].name})", "model": model, "img_size": img_size}
+            import ncnn  # type: ignore
+
+            net = ncnn.Net()
+            net.opt.num_threads = min(4, os.cpu_count() or 4)
+            net.opt.use_vulkan_compute = False
+            rc_p = net.load_param(str(ncnn_dir / "model.ncnn.param"))
+            rc_m = net.load_model(str(ncnn_dir / "model.ncnn.bin"))
+            if rc_p != 0 or rc_m != 0:
+                raise RuntimeError(f"NCNN load failed (param={rc_p}, bin={rc_m})")
+
+            in_names = list(net.input_names()) if hasattr(net, "input_names") else []
+            out_names = list(net.output_names()) if hasattr(net, "output_names") else []
+            in_name = in_names[0] if in_names else "in0"
+            out0_name = out_names[0] if len(out_names) >= 1 else "out0"
+            out1_name = out_names[1] if len(out_names) >= 2 else "out1"
+
+            dummy = np.zeros((3, img_size, img_size), dtype=np.float32)
+            ex = net.create_extractor()
+            ex.input(in_name, ncnn.Mat(dummy).clone())
+            _, o0 = ex.extract(out0_name)
+            _, o1 = ex.extract(out1_name)
+            p0 = np.array(o0, dtype=np.float32)
+            p1 = np.array(o1, dtype=np.float32)
+            if p0.size == 0 or p1.size == 0:
+                raise RuntimeError("NCNN warm-up returned empty tensors")
+
+            return {
+                "backend": "ncnn",
+                "engine_label": f"Native NCNN ({ncnn_dir.name})",
+                "ncnn_mod": ncnn,
+                "net": net,
+                "in_name": in_name,
+                "out0_name": out0_name,
+                "out1_name": out1_name,
+                "img_size": img_size,
+            }
         except Exception:
             pass
 
+    # 2. ลำดับสอง: ONNX Runtime CPU (ไม่ต้องใช้ PyTorch / Ultralytics / CUDA)
     onnx_files = [w_path] if (w_path.is_file() and w_path.suffix.lower() == ".onnx") else sorted(search_dir.glob("*.onnx"))
     if onnx_files:
         try:
@@ -341,6 +449,7 @@ def load_model(weights_path: str | Path) -> Dict[str, Any]:
         except Exception:
             pass
 
+    # 3. ลำดับสำรอง: PyTorch Ultralytics (กรณีผู้ใช้ส่งไฟล์ .pt เข้ามาโดยตรง)
     pt_files = [w_path] if (w_path.is_file() and w_path.suffix.lower() == ".pt") else sorted(search_dir.glob("*.pt"))
     if pt_files:
         from ultralytics import YOLO
@@ -365,8 +474,12 @@ def predict_image(
     img_size = int(engine.get("img_size", 640))
 
     raw_detections: List[Dict[str, Any]] = []
-    if backend == "onnxruntime":
-        dets = run_onnx_yolo_seg(engine["session"], roi_bgr, img_size=img_size, conf_thresh=conf_thresh)
+    if backend in ("ncnn", "onnxruntime"):
+        dets = (
+            run_ncnn_yolo_seg(engine, roi_bgr, img_size=img_size, conf_thresh=conf_thresh)
+            if backend == "ncnn"
+            else run_onnx_yolo_seg(engine["session"], roi_bgr, img_size=img_size, conf_thresh=conf_thresh)
+        )
         for d in dets:
             bx1, by1, bx2, by2 = d["bbox"]
             raw_detections.append(

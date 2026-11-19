@@ -2,8 +2,12 @@
 
 โซลูชัน **Multi-Class Instance Segmentation & Classification + HTTP/MQTT Integration** สำหรับตรวจคุณภาพเมล็ดกาแฟโรบัสต้าคละทั้ง 7 คลาส (`good`, `shell`, `black`, `husk`, `broken`, `parchment`, `immature`) บน **Raspberry Pi 5 (64-bit OS `aarch64`, CPU)** และ **Raspberry Pi 4**
 
-- **โมเดล:** `YOLO11n-seg` (`imgsz=640`, Fine-Tune ต่อจาก Day 2 `best.pt` ด้วยชุดข้อมูลจริง Day 3 ครบ 16 ภาพ 124 เม็ด + Day 1/2 Replay + กองคละคลาสซ้อนทับบนกระดาษและโต๊ะไม้จริง)
-- **ความแม่นยำและเวลา:** `P1 (IoU) = 14.48/15` (`0.9652`), `P2 (Count) = 14.91/15` (`99.42%`), Multi-Class Accuracy `96.86%` (Validation) / `97.58%` (`100%` counting บน 16 ภาพจริง `3072×4096`), Export ครบทั้ง `best_ncnn_model/` (`< 100 ms` บน Pi 5), `best.onnx`, และ `best.pt`
+- **โมเดล:** `YOLO11n-seg` (`imgsz=640`, V2 Hardened Fine-Tune ครบ 16 ภาพจริง Day 3 + 21 ภาพ Day 1/2 Replay + กองคละคลาสซ้อนทับ + เสริมความทนทานแสง/White-Balance/ISO Noise/Hard-Negative)
+- **ความแม่นยำและเวลา:**
+  - **ชุดจริง Day 3 (16 ภาพ, 124 เม็ด):** `P1 (IoU) = 14.24/15` (`94.9%`), `P2 (Count) = 15.00/15` (`100.0%`), Multi-Class Accuracy **`100.0%` (`124/124`)**, `MQTT Defect-Ratio MAE = 0.0000`
+  - **ชุดจริง Day 1/2 Replay (21 ภาพ, 175 เม็ด):** นับถูกและจำแนกคลาสถูก **`100.0%` (`175/175`)**
+  - **ชุด Validation V2 (23 ภาพ) / ชุดทดสอบโหด (42 ภาพ, 577 เม็ด):** Val `P1=14.54/15`, `P2=14.96/15`, `ClsAcc=98.69%` | Brutal Stress `P1=14.20/15`, `P2=14.90/15 (99.3%)`, `ClsAcc=87.8%`
+  - **Runtime:** รัน **Native NCNN (`best_ncnn_model/`)** ตรงๆ โดยไม่ต้องลง PyTorch/Ultralytics/CUDA พร้อม **ONNX Runtime (`best.onnx`)** สำรองอัตโนมัติ (`< 100 ms` บน Pi 5)
 
 ---
 
@@ -32,19 +36,19 @@ team_01_day3/
 
 ## 1. การติดตั้งบน Raspberry Pi 5 (64-bit OS) / Linux / Windows
 
+เบาและเร็ว (~100 MB, **ไม่ติดตั้ง PyTorch / Ultralytics / NVIDIA CUDA**):
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 
 pip install --upgrade pip
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 ```
 
 > **หมายเหตุ (Raspberry Pi OS Lite / Headless):**
 > - หากพบ error `libGL.so.1` ให้รัน `sudo apt update && sudo apt install -y libgl1 libglib2.0-0`
-> - หากต้องการติดตั้งแบบเบาสุด (ใช้ ONNX Runtime โดยไม่ลง PyTorch/Ultralytics):
->   `pip install opencv-python-headless numpy pillow onnxruntime requests "paho-mqtt>=2,<3"`
+> - `infer.py` เรียก **Native NCNN (`ncnn.Net`)** โดยตรงและสลับไป **ONNX Runtime (`best.onnx`)** ให้อัตโนมัติหากไม่มี `ncnn` (ส่วน `train.py` ออกแบบสำหรับรันเทรนบน Google Colab GPU)
 
 ---
 
