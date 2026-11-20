@@ -58,7 +58,7 @@ DEFAULT_MQTT_WS_PATH = "/mqtt/"
 DEFAULT_TEAM_ID = "TGR-01"
 DEFAULT_MQTT_CLIENT_ID = "TGR-01:device-1"
 DEFAULT_TRACK = "EdgeAI"
-DEFAULT_EVENT = "1"
+DEFAULT_EVENT = "Tesa2026-EdgeAI"
 
 
 # =====================================================================

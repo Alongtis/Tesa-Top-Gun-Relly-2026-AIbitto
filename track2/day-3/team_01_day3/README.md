@@ -66,7 +66,7 @@ python infer.py --input <test_folder/> --weights weights/ --out outputs/
 
 > ⚠️ **คำเตือน Credentials (ห้ามสลับกัน):**
 > - **`DAY3_HTTP_TOKEN`** = **Password ล็อกอินเว็บไซต์ของทีม** (ใส่ใน `Authorization: Bearer <TOKEN>`)
-> - **`DAY3_MQTT_KEY`** = **MQTT Key ที่กด Generate จากหน้า Dashboard / My Team** (ใช้เป็น MQTT Password และ Topic `/event/<MQTT_KEY>/EdgeAI/1`)
+> - **`DAY3_MQTT_KEY`** = **MQTT Key ที่กด Generate จากหน้า Dashboard / My Team** (ใช้เป็น MQTT Password และ Topic `/event/<MQTT_KEY>/EdgeAI/Tesa2026-EdgeAI`)
 
 ### สร้างไฟล์ `.env` ไว้ในโฟลเดอร์ `team_01_day3/` (ไม่ควร commit ขึ้น Git)
 
@@ -80,7 +80,7 @@ DAY3_MQTT_HOST=tesa-score.c333m.site
 DAY3_MQTT_PORT=443
 DAY3_MQTT_WS_PATH=/mqtt/
 DAY3_TRACK=EdgeAI
-DAY3_EVENT=1
+DAY3_EVENT=Tesa2026-EdgeAI
 ```
 
 ### คำสั่งใช้งาน `client.py`
